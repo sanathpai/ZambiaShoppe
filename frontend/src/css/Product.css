@@ -1,0 +1,27 @@
+/* AddProduct.css */
+
+.react-quill {
+    margin-top: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .MuiPaper-root {
+    padding: 32px;
+    width: 100%;
+    max-width: 800px;
+    border-radius: 16px;
+    box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.16);
+  }
+  
+  .MuiTypography-h5 {
+    margin-bottom: 8px;
+  }
+  
+  .MuiTypography-body2 {
+    color: gray;
+  }
+  
+  .MuiButton-root {
+    margin-top: 24px;
+  }
+  
