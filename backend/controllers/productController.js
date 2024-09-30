@@ -177,18 +177,31 @@ exports.deleteProduct = async (req, res) => {
     const user_id = req.user.id;
     const productId = req.params.id;
 
-    // Delete dependent rows in Units and Unit_Conversion
-    await db.query('DELETE FROM Units WHERE product_id = ? AND user_id = ?', [productId, user_id]);
+    // Begin the deletion process by deleting all related data in the correct order
+
+    // 1. Delete entries from Inventories related to the product
+    await db.query('DELETE FROM Inventories WHERE unit_id IN (SELECT unit_id FROM Units WHERE product_id = ? AND user_id = ?)', [productId, user_id]);
+
+    // 2. Delete entries from Purchases related to the product
+    await db.query('DELETE FROM Purchases WHERE product_id = ? AND user_id = ?', [productId, user_id]);
+
+    // 3. Delete entries from Sales related to the product
+    await db.query('DELETE FROM Sales WHERE product_id = ? AND user_id = ?', [productId, user_id]);
+
+    // 4. Delete entries from Unit_Conversion related to the product
     await db.query('DELETE FROM Unit_Conversion WHERE product_id = ?', [productId]);
 
-    // Now delete the product
+    // 5. Delete entries from Units related to the product
+    await db.query('DELETE FROM Units WHERE product_id = ? AND user_id = ?', [productId, user_id]);
+
+    // 6. Finally, delete the product itself
     const result = await Product.deleteByIdAndUser(productId, user_id);
     if (!result) {
       console.error(`Failed to delete product ID ${productId} for user: ${user_id}`);
       return res.status(404).json({ error: 'Product not found. Please provide a valid product ID.' });
     }
 
-    res.status(200).json({ message: 'Product and associated units deleted successfully.' });
+    res.status(200).json({ message: 'Product and all associated data deleted successfully.' });
   } catch (error) {
     console.error('Error deleting product:', error);
     res.status(500).json({ error: `An error occurred while deleting the product: ${error.message}` });
