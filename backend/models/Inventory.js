@@ -3,10 +3,10 @@ const convertUnits = require('../utils/unitConversion');
 
 const Inventory = {
   create: async (inventory) => {
-    const { product_id, current_stock, user_id, unit_id, shop_name } = inventory;
+    const { product_id, current_stock, user_id, unit_id, shop_name, stock_limit } = inventory;
     const [result] = await db.query(
-      'INSERT INTO Inventories (product_id, current_stock, user_id, unit_id, shop_name) VALUES (?, ?, ?, ?, ?)',
-      [product_id, current_stock, user_id, unit_id, shop_name]
+      'INSERT INTO Inventories (product_id, current_stock, user_id, unit_id, shop_name, stock_limit) VALUES (?, ?, ?, ?, ?, ?)',
+      [product_id, current_stock, user_id, unit_id, shop_name, stock_limit]
     );
     return result.insertId;
   },
@@ -33,6 +33,7 @@ const Inventory = {
         Inventories.inventory_id, 
         Inventories.current_stock, 
         Inventories.shop_name,
+        Inventories.stock_limit,
         Products.product_id, 
         Products.product_name,
         Products.variety, 

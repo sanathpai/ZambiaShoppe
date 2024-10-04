@@ -7,7 +7,7 @@ const convertUnits = require('../utils/unitConversion');
 // Add new inventory
 exports.addInventory = async (req, res) => {
   try {
-    const { product_name, variety, current_stock, unit_id } = req.body;
+    const { product_name, variety, current_stock, unit_id, stock_limit } = req.body; // Include stock_limit
     const user_id = req.user.id;
 
     // Fetch shop_name from Users table
@@ -31,11 +31,12 @@ exports.addInventory = async (req, res) => {
       return res.status(400).json({ error: `Inventory for the product "${product_name}" with variety "${variety}" already exists.` });
     }
 
-    // Create the inventory with unit_id
+    // Create the inventory with unit_id and stock_limit
     const inventory = {
       shop_name,
       product_id,
       current_stock,
+      stock_limit, // Include stock_limit here
       user_id,
       unit_id
     };
@@ -50,6 +51,7 @@ exports.addInventory = async (req, res) => {
     res.status(500).json({ error: 'An unexpected error occurred while adding the inventory. Please try again later.' });
   }
 };
+
 
 // Get all inventories for the authenticated user
 exports.getAllInventories = async (req, res) => {
