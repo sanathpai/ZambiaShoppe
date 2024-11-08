@@ -35,6 +35,7 @@ const productOfferingRoutes = require('../routes/productOfferingRoutes');
 const marketRoutes = require('../routes/marketRoutes');
 const supplierRoutes = require('../routes/supplierRoutes');
 const overviewRoutes = require('../routes/overviewRoutes');
+const adminRoutes=require('../routes/AdminRoutes');
 
 const app = express();
 
@@ -76,6 +77,7 @@ app.use('/api/markets', marketRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/products/usage', productRoutes);
 app.use('/api/overview', overviewRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).send('OK');

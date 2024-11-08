@@ -44,23 +44,54 @@ exports.register = async (req, res) => {
   }
 };
 
+
 exports.login = async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const [rows] = await db.query('SELECT * FROM Users WHERE username = ?', [username]);
-    if (rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
+    // First, check if the user is an admin
+    const [adminRows] = await db.query('SELECT * FROM admin WHERE username = ?', [username]);
+    if (adminRows.length > 0) {
+      const admin = adminRows[0];
+      // Check if the password matches for the admin (plain text comparison)
+      if (password !== admin.password) {
+        return res.status(401).json({ error: 'Invalid admin credentials' });
+      }
 
-    const user = rows[0];
+      // Generate JWT for admin
+      const token = jwt.sign(
+        { adminId: admin.id, username: admin.username, role: 'admin' },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+      return res.json({ token, role: 'admin' });
+    }
+
+    // If not an admin, check in the Users table
+    const [userRows] = await db.query('SELECT * FROM Users WHERE username = ?', [username]);
+    if (userRows.length === 0) {
+      return res.status(401).json({ error: 'Invalid user credentials' });
+    }
+
+    const user = userRows[0];
+    // Check if the password matches for the user (bcrypt comparison)
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid user credentials' });
+    }
 
-    const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token });
+    // Generate JWT for regular user
+    const token = jwt.sign(
+      { userId: user.id, username: user.username, role: 'user' },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    res.json({ token, role: 'user' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 exports.validateToken = (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
