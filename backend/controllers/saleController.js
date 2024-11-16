@@ -110,12 +110,34 @@ exports.updateSale = async (req, res) => {
     }
 
     // Convert old and new quantities to the inventory unit type
-    const oldConvertedQuantity = await convertUnits(oldSale.quantity, oldSale.unit_id, inventory.unit_id);
-    const newConvertedQuantity = await convertUnits(quantity, unit_id, inventory.unit_id);
+    const oldConvertedQuantity = await convertUnits(
+      parseFloat(oldSale.quantity), 
+      oldSale.unit_id, 
+      inventory.unit_id
+    );
+
+    const newConvertedQuantity = await convertUnits(
+      parseFloat(quantity), 
+      unit_id, 
+      inventory.unit_id
+    );
+
+    console.log(`Converted Quantities - Old: ${oldConvertedQuantity}, New: ${newConvertedQuantity}`);
+
+    if (isNaN(oldConvertedQuantity) || isNaN(newConvertedQuantity)) {
+      throw new Error('Conversion resulted in NaN. Check unit conversions and inputs.');
+    }
 
     // Adjust the inventory stock
-    const newStock = inventory.current_stock + oldConvertedQuantity - newConvertedQuantity;
+    const currentStock = parseFloat(inventory.current_stock);
+    const newStock = currentStock + oldConvertedQuantity - newConvertedQuantity;
+
+    if (isNaN(newStock)) {
+      throw new Error(`Calculated stock is NaN. Current stock: ${currentStock}`);
+    }
+
     if (newStock < 0) throw new Error('Insufficient stock available for this update.');
+
     await Inventory.update(inventory.inventory_id, { ...inventory, current_stock: newStock });
 
     // Update sale entry

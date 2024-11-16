@@ -65,7 +65,7 @@ const calculateFinalProfits = async (groupedInventory, groupedPurchases, grouped
 
       let convertedPurchaseQuantity = await convertUnits(purArr[i].quantity, purArr[i].unit_id, inventoryArray[0].unit_id);
       purchaseSum += parseFloat(convertedPurchaseQuantity);
-      purchaseCost += purArr[i].order_price;
+      purchaseCost= purchaseCost + purArr[i].order_price*purArr[i].quantity;
     }
 
     let avgPurchase = purchaseSum > 0 ? parseFloat(purchaseCost) / parseFloat(purchaseSum) : 0;
@@ -145,14 +145,14 @@ const calculateAverageSales = async (salesForWeek, salesForPrevWeek, inventoryUn
   for (let i = 0; i < salesForWeek.length; i++) {
     let convertedSalesQuantity = await convertUnits(salesForWeek[i].quantity, salesForWeek[i].unit_id, inventoryUnitId);
     salesQuantityForWeek += parseFloat(convertedSalesQuantity);
-    salePriceForWeek += salesForWeek[i].retail_price;
+    salePriceForWeek =salePriceForWeek+ salesForWeek[i].retail_price * salesForWeek[i].quantity;
   }
 
   // Calculate sales for the previous week
   for (let i = 0; i < salesForPrevWeek.length; i++) {
     let convertedSalesPrevQuantity = await convertUnits(salesForPrevWeek[i].quantity, salesForPrevWeek[i].unit_id, inventoryUnitId);
     salesQuantityForPrevWeek += parseFloat(convertedSalesPrevQuantity);
-    salePriceForPrevWeek += salesForPrevWeek[i].retail_price;
+    salePriceForPrevWeek = salePriceForPrevWeek + salesForPrevWeek[i].retail_price * salesForPrevWeek[i].quantity;
   }
 
   let avgSalesWeek = salesQuantityForWeek > 0 ? parseFloat(salePriceForWeek) / parseFloat(salesQuantityForWeek) : 0;

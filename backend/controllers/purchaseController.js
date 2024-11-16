@@ -110,8 +110,10 @@ exports.updatePurchase = async (req, res) => {
 
     // Convert old and new quantities to the inventory unit type
     const oldConvertedQuantity = await convertUnits(oldPurchase.quantity, oldPurchase.unit_id, inventory.unit_id);
+    console.log(`This is the old Converted Quantity:${oldConvertedQuantity}`);
+    console.log(`This is the unit id:${unit_id}`);
     const newConvertedQuantity = await convertUnits(quantity, unit_id, inventory.unit_id);
-
+    console.log(`This is the new Converted Quantity:${newConvertedQuantity}`);
     // Adjust the inventory stock
     const newStock = inventory.current_stock - oldConvertedQuantity + newConvertedQuantity;
     await Inventory.update(inventory.inventory_id, { ...inventory, current_stock: newStock });
