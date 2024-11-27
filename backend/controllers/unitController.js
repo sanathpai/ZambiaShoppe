@@ -293,3 +293,45 @@ exports.deleteUnit = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+
+/**
+ * Controller to fetch all units associated with a product.
+ * Expects:
+ * - productId as a route parameter.
+ */
+exports.getUnitsByProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required parameter: productId',
+      });
+    }
+
+    // Query to fetch all unique units related to the product
+    const query = `
+     SELECT DISTINCT u.unit_id, u.unit_type
+FROM Units u
+WHERE u.product_id = ?;
+    `;
+
+    const [rows] = await db.query(query, [productId, productId]);
+
+    res.status(200).json({
+      success: true,
+      units: rows,
+    });
+  } catch (error) {
+    console.error(`Error fetching units for product ${req.params.productId}: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching units for the product',
+    });
+  }
+};
+
+

@@ -23,13 +23,16 @@ const buildConversionGraph = async () => {
 
 // BFS function to find the path between two units in the graph
 const bfsConversionPath = (graph, fromUnitId, toUnitId) => {
+  console.log("BFS Conversion -> ", fromUnitId, toUnitId);
+  
   const queue = [{ unit_id: fromUnitId, rate: 1 }];
   const visited = new Set();
 
   while (queue.length > 0) {
     const { unit_id, rate } = queue.shift();
 
-    if (unit_id === toUnitId) {
+
+    if (unit_id == toUnitId) {
       return rate;
     }
 
@@ -56,11 +59,12 @@ const convertUnits = async (quantity, fromUnitId, toUnitId) => {
   if (fromUnitId === toUnitId) {
     return quantity;
   }
+  
 
   const graph = await buildConversionGraph();
 
-  const conversionRate = bfsConversionPath(graph, fromUnitId, toUnitId);
 
+  const conversionRate = bfsConversionPath(graph, fromUnitId, toUnitId);
 
   if (conversionRate === null) {
     throw new Error(`No conversion path found between units ${fromUnitId} and ${toUnitId}`);

@@ -9,5 +9,6 @@ router.get('/', auth, unitController.getAllUnits);
 router.get('/product/:productId', auth, unitController.getUnitsByProductId);
 router.put('/:id', auth, unitController.updateUnit); // Ensure this is defined
 router.delete('/:id', auth, unitController.deleteUnit);
+router.get('/product/:productId/unitInfo',auth, unitController.getUnitsByProduct);
 
 module.exports = router;

@@ -46,7 +46,7 @@ const calculateFinalProfits = async (groupedInventory, groupedPurchases, grouped
   };
 
   for (const [productId, inventoryArray] of groupedInventory.entries()) {
-    console.log("Processing product:", productId);
+    // console.log("Processing product:", productId);
 
     let purArr = groupedPurchases.get(productId);
     if (!purArr || purArr.length === 0) continue; // Skip if no purchases are found for this product
@@ -55,6 +55,7 @@ const calculateFinalProfits = async (groupedInventory, groupedPurchases, grouped
     const productName = inventoryArray[0].product_name || 'Unknown Product';
     const unitType = inventoryArray[0].unit_type || 'undefined';
     const variety = inventoryArray[0].variety || 'Unknown Variety'; // Extract variety here
+    const unitId=inventoryArray[0].unit_id || 0;
 
     let inventoryStock = parseFloat(inventoryArray[0].current_stock);
     let purchaseSum = 0, purchaseCost = 0;
@@ -86,11 +87,11 @@ const calculateFinalProfits = async (groupedInventory, groupedPurchases, grouped
     let profitForPrevWeek = salesQuantityForPrevWeek > 0 ? avgSalesPrevWeek - avgPurchase : 0;
 
     // Store the profits, product name, and unit type in the final object
-    finalProfits.profitsForWeek.push({ productId, variety, productName, unitType, profit: profitForWeek });
-    finalProfits.profitsForPrevWeek.push({ productId, variety, productName, unitType, profit: profitForPrevWeek });
+    finalProfits.profitsForWeek.push({ productId, variety, productName, unitId, unitType, profit: profitForWeek });
+    finalProfits.profitsForPrevWeek.push({ productId, variety, productName, unitType, unitId, profit: profitForPrevWeek });
   }
 
-  console.log('Final profits:', finalProfits);
+  // console.log('Final profits:', finalProfits);
   return finalProfits;
 };
 
@@ -102,7 +103,7 @@ const calculateTotalQuantities = async (groupedInventory, groupedPurchases, grou
   };
 
   for (const [productId, inventoryArray] of groupedInventory.entries()) {
-    console.log("Processing product for quantities:", productId);
+    // console.log("Processing product for quantities:", productId);
 
     // Get product_name and unit_type from the inventoryArray (since it should be present in inventories)
     const productName = inventoryArray[0].product_name || 'Unknown Product';
@@ -190,3 +191,37 @@ const groupByProduct = (data) => {
   });
   return acc;
 };
+
+exports.getProfitInSelectedUnit = async (req, res) => {
+  try {
+    const { profitPerInventoryUnit, inventoryUnitId, selectedUnitId } = req.query;
+
+    // Validate inputs\
+
+    if (!profitPerInventoryUnit || !inventoryUnitId || !selectedUnitId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required parameters: profitPerInventoryUnit, inventoryUnitId, or selectedUnitId' 
+      });
+    }
+
+    
+    if (inventoryUnitId === selectedUnitId) {
+      return res.status(200).json({ success: true, profit: profit });
+    }
+
+    // Convert profit to the selected unit
+    const conversionRate = await convertUnits(1.0, inventoryUnitId, selectedUnitId);
+    console.log(`The conversion rate is ${conversionRate}`);
+    const profitInSelectedUnit = profitPerInventoryUnit * conversionRate;
+    
+    res.status(200).json({ success: true, profit: profitInSelectedUnit });
+    console.log(`The profit in new unit is: ${profitInSelectedUnit}`);
+  } catch (error) {
+    console.error(`Error calculating profit in selected unit: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Error calculating profit in selected unit' });
+  }
+};
+
+
+
