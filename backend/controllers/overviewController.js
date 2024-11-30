@@ -213,7 +213,7 @@ exports.getProfitInSelectedUnit = async (req, res) => {
     // Convert profit to the selected unit
     const conversionRate = await convertUnits(1.0, inventoryUnitId, selectedUnitId);
     console.log(`The conversion rate is ${conversionRate}`);
-    const profitInSelectedUnit = profitPerInventoryUnit * conversionRate;
+    const profitInSelectedUnit = profitPerInventoryUnit / conversionRate;
     
     res.status(200).json({ success: true, profit: profitInSelectedUnit });
     console.log(`The profit in new unit is: ${profitInSelectedUnit}`);
