@@ -194,32 +194,51 @@ const groupByProduct = (data) => {
 
 exports.getProfitInSelectedUnit = async (req, res) => {
   try {
-    const { profitPerInventoryUnit, inventoryUnitId, selectedUnitId } = req.query;
+    const { profitPerInventoryUnit, profitLastWeek, inventoryUnitId, selectedUnitId } = req.query;
 
-    // Validate inputs\
-
+    // Validate inputs
     if (!profitPerInventoryUnit || !inventoryUnitId || !selectedUnitId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Missing required parameters: profitPerInventoryUnit, inventoryUnitId, or selectedUnitId' 
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required parameters: profitPerInventoryUnit, inventoryUnitId, or selectedUnitId',
       });
     }
 
-    
+    // Parse the values to numbers
+    const currentProfit = parseFloat(profitPerInventoryUnit);
+    const lastWeekProfit = parseFloat(profitLastWeek) || 0; // Default to 0 if not provided
+
+    // If units are the same, return profits as they are
     if (inventoryUnitId === selectedUnitId) {
-      return res.status(200).json({ success: true, profit: profit });
+      return res.status(200).json({ 
+        success: true, 
+        profit: currentProfit, 
+        profitLastWeek: lastWeekProfit 
+      });
     }
 
-    // Convert profit to the selected unit
+    // Convert profits to the selected unit
     const conversionRate = await convertUnits(1.0, inventoryUnitId, selectedUnitId);
     console.log(`The conversion rate is ${conversionRate}`);
-    const profitInSelectedUnit = profitPerInventoryUnit / conversionRate;
-    
-    res.status(200).json({ success: true, profit: profitInSelectedUnit });
-    console.log(`The profit in new unit is: ${profitInSelectedUnit}`);
+
+    const profitInSelectedUnit = currentProfit / conversionRate;
+    const profitLastWeekInSelectedUnit = lastWeekProfit / conversionRate;
+
+    // Respond with both converted profits
+    res.status(200).json({ 
+      success: true, 
+      profit: profitInSelectedUnit, 
+      profitLastWeek: profitLastWeekInSelectedUnit 
+    });
+
+    console.log(`Profit in new unit: ${profitInSelectedUnit}`);
+    console.log(`Profit last week in new unit: ${profitLastWeekInSelectedUnit}`);
   } catch (error) {
     console.error(`Error calculating profit in selected unit: ${error.message}`);
-    res.status(500).json({ success: false, message: 'Error calculating profit in selected unit' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error calculating profit in selected unit' 
+    });
   }
 };
 
