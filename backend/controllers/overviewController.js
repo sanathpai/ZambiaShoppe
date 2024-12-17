@@ -242,6 +242,33 @@ exports.getProfitInSelectedUnit = async (req, res) => {
   }
 };
 
+exports.getProductsBelowThreshold = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+
+    // Fetch all inventories for the user
+    const inventories = await Inventory.findAllByUser(user_id);
+
+    // Filter products below the threshold
+    const productsBelowThreshold = inventories
+      .filter((inventory) => inventory.current_stock < inventory.stock_limit)
+      .map((inventory) => ({
+        productId: inventory.product_id,
+        productName: inventory.product_name,
+        variety: inventory.variety,
+      }));
+
+    res.status(200).json({
+      success: true,
+      productsBelowThreshold,
+    });
+  } catch (error) {
+    console.error('Error fetching products below threshold:', error);
+    res.status(500).json({ success: false, message: 'Error fetching data' });
+  }
+};
+
+
 
 
 
