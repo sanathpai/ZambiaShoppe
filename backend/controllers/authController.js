@@ -142,7 +142,7 @@ exports.forgotPassword = async (req, res) => {
     await db.query('UPDATE Users SET reset_password_token = ?, reset_password_expires = ? WHERE email = ?', [token, expireTime, email]);
 
     // Send the reset link via email
-    const resetURL = `http://localhost:3000/reset-password/${token}`;
+    const resetURL = `https://frontend.shoppeappnow.com/reset-password/${token}`;
     const mailOptions = {
       to: email,
       from: process.env.EMAIL_USER,
