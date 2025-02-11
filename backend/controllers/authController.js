@@ -6,6 +6,8 @@ const dotenv = require('dotenv');
 const path = require('path');
 const db = require('../config/db');
 const User = require('../models/User');
+const twilio = require('twilio');
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 const validateEmail = (email) => {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -142,7 +144,8 @@ exports.forgotPassword = async (req, res) => {
     await db.query('UPDATE Users SET reset_password_token = ?, reset_password_expires = ? WHERE email = ?', [token, expireTime, email]);
 
     // Send the reset link via email
-    const resetURL = `https://frontend.shoppeappnow.com/reset-password/${token}`;
+    const resetURL = `http://localhost:3000/reset-password/${token}`;
+    console.log('Reset URL:', resetURL);
     const mailOptions = {
       to: email,
       from: process.env.EMAIL_USER,
@@ -158,10 +161,17 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
+
+
+
+
 // Reset password
 exports.resetPassword = async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;  // Use "password" here to match the front-end
+
+  console.log(`Token is: ${token}`);
+  console.log(`The new password:${password}`);
 
   try {
     // Find the user by reset token and check if token is still valid
@@ -182,6 +192,8 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ error: 'Error resetting password' });
   }
 };
+
+
 
 
 

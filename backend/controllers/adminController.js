@@ -4,6 +4,29 @@ const Purchase = require('../models/Purchase');
 const Sale = require('../models/Sale');
 const Product = require('../models/Product');
 const db = require('../config/db');
+const fs = require('fs');
+const path = require('path');
+const XLSX = require('xlsx');
+
+const getDateRange = (filter) => {
+  const now = new Date();
+  let startDate, endDate;
+
+  if (filter === "current_month") {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  } else if (filter === "last_quarter") {
+      const quarter = Math.floor((now.getMonth() + 1) / 3);
+      startDate = new Date(now.getFullYear(), (quarter - 1) * 3, 1);
+      endDate = new Date(now.getFullYear(), quarter * 3, 0);
+  } else if (filter === "year_end") {
+      startDate = new Date(now.getFullYear(), 0, 1);
+      endDate = new Date(now.getFullYear(), 11, 31);
+  }
+
+  return { startDate, endDate };
+};
+
 
 // Get All Users with Pagination
 exports.getUsers = async (req, res) => {
@@ -52,13 +75,17 @@ exports.getUserPurchases = async (req, res) => {
     try {
      // Get the user ID from the request parameters
   
-      const query = `SELECT 
+const query = `SELECT 
         Purchases.*, 
         Products.product_name,
-        Products.variety
+        Products.variety,
+        Users.username,
+        Users.shop_name
       FROM Purchases
       JOIN Products ON Purchases.product_id = Products.product_id
+      JOIN Users ON Purchases.user_id = Users.id
       ORDER BY Purchases.purchase_date DESC;`;
+
   
       // Execute the query with the userId as a parameter
       const [rows] = await db.query(query);
@@ -80,10 +107,13 @@ exports.getUserPurchases = async (req, res) => {
   Sales.*, 
   Products.product_name,
   Products.variety,
-  Units.unit_type
+  Units.unit_type,
+  Users.username,
+  Users.shop_name
 FROM Sales
 JOIN Products ON Sales.product_id = Products.product_id
 JOIN Units ON Sales.unit_id = Units.unit_id
+JOIN Users ON Sales.user_id=Users.id
 ORDER BY Sales.sale_date DESC;
   `;
   const [rows] = await db.query(query);
@@ -94,3 +124,127 @@ ORDER BY Sales.sale_date DESC;
     }
 
   };
+
+
+
+
+// Export all data to an Excel file
+exports.exportDataToExcel = async (req, res) => {
+  try {
+      // Fetch data from different tables
+      const [users] = await db.query(`SELECT * FROM Users`);
+      const [products] = await db.query(`SELECT * FROM Products`);
+      const [purchases] = await db.query(`
+          SELECT 
+              Purchases.*, 
+              Products.product_name,
+              Products.variety,
+              Users.username,
+              Users.shop_name
+          FROM Purchases
+          JOIN Products ON Purchases.product_id = Products.product_id
+          JOIN Users ON Purchases.user_id = Users.id
+          ORDER BY Purchases.purchase_date DESC;
+      `);
+      const [sales] = await db.query(`
+          SELECT 
+              Sales.*, 
+              Products.product_name,
+              Products.variety,
+              Units.unit_type,
+              Users.username,
+              Users.shop_name
+          FROM Sales
+          JOIN Products ON Sales.product_id = Products.product_id
+          JOIN Units ON Sales.unit_id = Units.unit_id
+          JOIN Users ON Sales.user_id = Users.id
+          ORDER BY Sales.sale_date DESC;
+      `);
+
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new();
+
+      // Convert JSON data to worksheets and append to workbook
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(users), "Users");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(products), "Products");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(purchases), "Purchases");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(sales), "Sales");
+
+      // Define file path
+      const filePath = path.join(__dirname, '..', 'exports', 'database_export.xlsx');
+
+      // Ensure the exports directory exists
+      if (!fs.existsSync(path.join(__dirname, '..', 'exports'))) {
+          fs.mkdirSync(path.join(__dirname, '..', 'exports'), { recursive: true });
+      }
+
+      // Write Excel file
+      XLSX.writeFile(workbook, filePath);
+
+      // Send file as response for download
+      res.download(filePath, 'database_export.xlsx', (err) => {
+          if (err) {
+              console.error("Error downloading file:", err);
+              res.status(500).json({ message: 'Error downloading file' });
+          }
+      });
+
+  } catch (error) {
+      console.error("Error exporting data:", error);
+      res.status(500).json({ message: 'Error exporting data' });
+  }
+};
+exports.exportFilteredData = async (req, res) => {
+  try {
+      const { filter } = req.query;
+      const { startDate, endDate } = getDateRange(filter);
+
+      // Fetch filtered data
+      const [purchases] = await db.query(`SELECT 
+    Purchases.*, 
+    Products.product_name,
+    Products.variety,
+    Users.username,
+    Users.shop_name
+FROM Purchases
+JOIN Products ON Purchases.product_id = Products.product_id
+JOIN Users ON Purchases.user_id = Users.id
+WHERE Purchases.purchase_date BETWEEN ? AND ?
+ORDER BY Purchases.purchase_date DESC;
+`, [startDate, endDate]);
+      const [sales] = await db.query(`SELECT 
+    Sales.*, 
+    Products.product_name,
+    Products.variety,
+    Units.unit_type,
+    Users.username,
+    Users.shop_name
+FROM Sales
+JOIN Products ON Sales.product_id = Products.product_id
+JOIN Units ON Sales.unit_id = Units.unit_id
+JOIN Users ON Sales.user_id = Users.id
+WHERE Sales.sale_date BETWEEN ? AND ? 
+ORDER BY Sales.sale_date DESC;
+`, [startDate, endDate]);
+
+      // Create a workbook
+      const workbook = XLSX.utils.book_new();
+
+      // Append worksheets
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(purchases), "Purchases");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(sales), "Sales");
+
+      // Define file path
+      const filePath = path.join(__dirname, '..', 'exports', `${filter}_report.xlsx`);
+
+      // Write Excel file
+      XLSX.writeFile(workbook, filePath);
+
+      // Send file for download
+      res.download(filePath, `${filter}_report.xlsx`);
+
+  } catch (error) {
+      console.error("Error exporting filtered data:", error);
+      res.status(500).json({ message: 'Error exporting data' });
+  }
+};
