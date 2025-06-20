@@ -10,7 +10,7 @@ app.use(express.json());
 
 // Routes
 const authRoutes = require('../routes/AuthRoutes');
-const productRoutes = require('../routes/productRoutes');
+const productRoutes = require('../routes/ProductRoutes');
 const purchaseRoutes = require('../routes/purchaseRoutes');
 const saleRoutes = require('../routes/saleRoutes');
 const inventoryRoutes = require('../routes/inventoryRoutes');
