@@ -41,7 +41,7 @@ const insightsRoutes = require('../routes/insightsRoutes');
 const app = express();
 
 const allowedOrigins = [
-  'http://localhost:3001',
+  'http://localhost:3000',
   'https://famous-meringue-6f9ba4.netlify.app',
   'https://669ae7cdf45878756250f3cd--superb-taffy-d02534.netlify.app',
   'https://frontend.shoppeappnow.com'
