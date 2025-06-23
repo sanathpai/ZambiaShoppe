@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon src/server.js"
+    "start": "nodemon src/server.js",
+    "start:prod": "node src/server.js",
+    "build": "echo \"Build completed successfully - No build process needed for Node.js backend\""
   },
   "keywords": [],
   "author": "",
