@@ -66,20 +66,20 @@ app.use(session({ secret: process.env.SESSION_SECRET, resave: false, saveUniniti
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use('/auth', authRoutes);
-app.use('/products', productRoutes);
-app.use('/purchases', purchaseRoutes);
-app.use('/sales', saleRoutes);
-app.use('/inventories', inventoryRoutes);
-app.use('/shops', shopRoutes);
-app.use('/units', unitRoutes);
-app.use('/productOfferings', productOfferingRoutes);
-app.use('/markets', marketRoutes);
-app.use('/suppliers', supplierRoutes);
-app.use('/products/usage', productRoutes);
-app.use('/overview', overviewRoutes);
-app.use('/admin', adminRoutes);
-app.use('/insights', insightsRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/purchases', purchaseRoutes);
+app.use('/api/sales', saleRoutes);
+app.use('/api/inventories', inventoryRoutes);
+app.use('/api/shops', shopRoutes);
+app.use('/api/units', unitRoutes);
+app.use('/api/productOfferings', productOfferingRoutes);
+app.use('/api/markets', marketRoutes);
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/products/usage', productRoutes);
+app.use('/api/overview', overviewRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/insights', insightsRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
@@ -145,7 +145,7 @@ function sendEmail(to, subject, attachmentPath) {
 // sendEmail(process.env.EMAIL_RECEIVER.toString(),"test","texttt testing");
 
 // Endpoint to trigger data export and email
-app.get('/export-data', async (req, res) => {
+app.get('/api/export-data', async (req, res) => {
   try {
     await fetchDataAndExportToExcel();
     res.status(200).send('Data exported and emailed successfully.');
@@ -161,7 +161,7 @@ cron.schedule('0 0 * * *', async () => {
   await fetchDataAndExportToExcel();
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

@@ -7,38 +7,54 @@ const db = require('../config/db');
 const moment = require('moment');
 
 // Add a new purchase and update inventory stock
-// Add a new purchase and update inventory stock
 exports.addPurchase = async (req, res) => {
   try {
-    const { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id } = req.body;
+    console.log('=== ADD PURCHASE START ===');
+    console.log('Request body:', req.body);
+    console.log('User:', req.user);
+    
+    const { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category } = req.body;
     const user_id = req.user.id;
 
+    console.log('Extracted data:', { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category, user_id });
+
     // Fetch shop_name from Users table
+    console.log('Fetching user shop_name...');
     const [user] = await db.query('SELECT shop_name FROM Users WHERE id = ?', [user_id]);
     if (!user.length) throw new Error('User not found');
     const shop_name = user[0].shop_name;
+    console.log('Shop name:', shop_name);
 
     // Fetch product details
+    console.log('Fetching product details...');
     const product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
     if (!product) throw new Error('Product not found');
+    console.log('Product found:', product);
 
     // Fetch the inventory
+    console.log('Fetching inventory...');
     let inventory = await Inventory.findByProductAndUser(product.product_id, user_id);
     if (!inventory) {
       throw new Error('Inventory not found. Please add the item to inventory first.');
     }
+    console.log('Inventory found:', inventory);
 
     // **Log the unit_ids for debugging**
     console.log(`Converting from unit_id: ${unit_id} to inventory.unit_id: ${inventory.unit_id}`);
 
     // Convert purchased quantity to inventory unit type
+    console.log('Converting units...');
     const convertedQuantity = await convertUnits(quantity, unit_id, inventory.unit_id);
+    console.log('Converted quantity:', convertedQuantity);
 
     // Update the inventory stock
+    console.log('Updating inventory stock...');
     const newStock = parseFloat(inventory.current_stock) + parseFloat(convertedQuantity);
     await Inventory.update(inventory.inventory_id, { ...inventory, current_stock: newStock });
+    console.log('Inventory updated, new stock:', newStock);
 
     // Add purchase entry
+    console.log('Creating purchase entry...');
     const purchase = {
       product_id: product.product_id,
       supplier_name,
@@ -49,12 +65,18 @@ exports.addPurchase = async (req, res) => {
       purchase_date,
       user_id,
       shop_name,
+      unit_category,
     };
+    console.log('Purchase object:', purchase);
     const purchaseId = await Purchase.create(purchase);
+    console.log('Purchase created with ID:', purchaseId);
 
     res.status(201).json({ purchaseId });
+    console.log('=== ADD PURCHASE SUCCESS ===');
   } catch (error) {
+    console.error('=== ADD PURCHASE ERROR ===');
     console.error('Error adding purchase:', error);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({ error: error.message });
   }
 };
@@ -94,7 +116,7 @@ exports.updatePurchase = async (req, res) => {
   try {
     const user_id = req.user.id;
     const purchaseId = req.params.id;
-    const { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id } = req.body;
+    const { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category } = req.body;
 
     // Fetch the old purchase details
     const oldPurchase = await Purchase.findByIdAndUser(purchaseId, user_id);
