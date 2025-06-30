@@ -39,6 +39,21 @@ exports.register = async (req, res) => {
   }
 
   try {
+    // Check for duplicate username and email
+    const duplicates = await User.checkDuplicates(username, email);
+    
+    if (duplicates.username && duplicates.email) {
+      return res.status(400).json({ error: 'Username and email already exist' });
+    }
+    
+    if (duplicates.username) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+    
+    if (duplicates.email) {
+      return res.status(400).json({ error: 'Email already exists' });
+    }
+
     const userId = await User.create({ username, password, shop_name, first_name, last_name, email, contact, address });
     res.status(201).json({ userId });
   } catch (error) {
@@ -190,6 +205,17 @@ exports.resetPassword = async (req, res) => {
   } catch (error) {
     console.error('Error resetting password:', error);  // Log the actual error for debugging
     res.status(500).json({ error: 'Error resetting password' });
+  }
+};
+
+exports.checkDuplicates = async (req, res) => {
+  const { username, email } = req.query;
+
+  try {
+    const duplicates = await User.checkDuplicates(username, email);
+    res.json(duplicates);
+  } catch (error) {
+    res.status(500).json({ error: 'Error checking duplicates' });
   }
 };
 
