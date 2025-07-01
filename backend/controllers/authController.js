@@ -30,7 +30,9 @@ exports.register = async (req, res) => {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  if (email && !validateEmail(email)) {
+  // Trim and validate email if provided
+  const trimmedEmail = email ? email.trim() : null;
+  if (trimmedEmail && !validateEmail(trimmedEmail)) {
     return res.status(400).json({ error: 'Invalid email address' });
   }
 
@@ -40,7 +42,7 @@ exports.register = async (req, res) => {
 
   try {
     // Check for duplicate username and email
-    const duplicates = await User.checkDuplicates(username, email);
+    const duplicates = await User.checkDuplicates(username, trimmedEmail);
     
     if (duplicates.username && duplicates.email) {
       return res.status(400).json({ error: 'Username and email already exist' });
@@ -54,7 +56,16 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: 'Email already exists' });
     }
 
-    const userId = await User.create({ username, password, shop_name, first_name, last_name, email, contact, address });
+    const userId = await User.create({ 
+      username: username.trim(), 
+      password, 
+      shop_name, 
+      first_name, 
+      last_name, 
+      email: trimmedEmail, 
+      contact, 
+      address 
+    });
     res.status(201).json({ userId });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -142,10 +153,18 @@ const transporter = nodemailer.createTransport({
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
 
+  // Trim and validate email format and presence
+  const trimmedEmail = email ? email.trim() : '';
+  if (!trimmedEmail || !validateEmail(trimmedEmail)) {
+    return res.status(400).json({ error: 'Please provide a valid email address' });
+  }
+
   try {
-    // Check if the user with this email exists
-    const [rows] = await db.query('SELECT * FROM Users WHERE email = ?', [email]);
-    if (rows.length === 0) return res.status(400).json({ error: 'User not found' });
+    // Check if the user with this email exists (only check non-null, non-empty emails)
+    const [rows] = await db.query('SELECT * FROM Users WHERE email = ? AND email IS NOT NULL AND email != ""', [trimmedEmail]);
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'This email address is not associated with any account.' });
+    }
 
     const user = rows[0];
 
@@ -156,22 +175,46 @@ exports.forgotPassword = async (req, res) => {
     const expireTime = Date.now() + 3600000;
 
     // Save the token and its expiration to the user's record
-    await db.query('UPDATE Users SET reset_password_token = ?, reset_password_expires = ? WHERE email = ?', [token, expireTime, email]);
+    await db.query('UPDATE Users SET reset_password_token = ?, reset_password_expires = ? WHERE email = ?', [token, expireTime, trimmedEmail]);
 
-    // Send the reset link via email
+    // Send the reset link via email - use production frontend URL
     const resetURL = `http://localhost:3000/reset-password/${token}`;
     console.log('Reset URL:', resetURL);
+    
     const mailOptions = {
-      to: email,
-      from: process.env.EMAIL_USER,
-      subject: 'Password Reset Request',
-      text: `You requested a password reset. Click the link to reset your password: ${resetURL}`,
+      to: trimmedEmail,
+      from: `"ZambiaShoppe Support" <${process.env.EMAIL_USER}>`,
+      replyTo: process.env.SUPPORT_EMAIL || process.env.EMAIL_USER,
+      subject: 'ZambiaShoppe - Password Reset Request',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Password Reset Request</h2>
+          <p>Hello,</p>
+          <p>You requested a password reset for your ZambiaShoppe account. Click the button below to reset your password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetURL}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Reset Password</a>
+          </div>
+          <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #666;">${resetURL}</p>
+          <p>This link will expire in 1 hour for security reasons.</p>
+          <p>If you didn't request this password reset, you can safely ignore this email.</p>
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="color: #666; font-size: 12px;">ZambiaShoppe Team</p>
+        </div>
+      `,
+      text: `You requested a password reset for your ZambiaShoppe account. Click the link to reset your password: ${resetURL}
+      
+This link will expire in 1 hour for security reasons.
+If you didn't request this password reset, you can safely ignore this email.
+
+ZambiaShoppe Team`,
     };
 
     await transporter.sendMail(mailOptions);
 
     res.json({ message: 'Password reset email sent' });
   } catch (error) {
+    console.error('Error in forgotPassword:', error);
     res.status(500).json({ error: 'Error sending password reset email' });
   }
 };

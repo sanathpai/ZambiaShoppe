@@ -16,7 +16,9 @@ const User = {
     return rows[0];
   },
   findByEmail: async (email) => {
-    const [rows] = await db.query('SELECT * FROM Users WHERE email = ?', [email]);
+    // Only search for non-null, non-empty emails
+    if (!email || email.trim() === '') return null;
+    const [rows] = await db.query('SELECT * FROM Users WHERE email = ? AND email IS NOT NULL AND email != ""', [email.trim()]);
     return rows[0];
   },
   findById: async (id) => {
@@ -27,14 +29,14 @@ const User = {
     const duplicates = { username: false, email: false };
     
     // Check for duplicate username
-    if (username) {
-      const existingUser = await User.findByUsername(username);
+    if (username && username.trim() !== '') {
+      const existingUser = await User.findByUsername(username.trim());
       duplicates.username = !!existingUser;
     }
     
-    // Check for duplicate email
-    if (email) {
-      const existingEmail = await User.findByEmail(email);
+    // Check for duplicate email - only check if email is provided and not empty
+    if (email && email.trim() !== '') {
+      const existingEmail = await User.findByEmail(email.trim());
       duplicates.email = !!existingEmail;
     }
     
