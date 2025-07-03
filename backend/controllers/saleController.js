@@ -1,6 +1,7 @@
 const Sale = require('../models/Sale');
 const Product = require('../models/Product');
 const Inventory = require('../models/Inventory');
+const CurrentPrice = require('../models/CurrentPrice');
 const convertUnits = require('../utils/unitConversion');
 const db = require('../config/db');
 const moment = require('moment');
@@ -19,6 +20,27 @@ exports.addSale = async (req, res) => {
     // Fetch product details
     const product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
     if (!product) throw new Error('Product not found');
+
+    // Check/Update CurrentPrice for this product-unit combination
+    console.log('Checking/Updating current retail price...');
+    const currentPrice = await CurrentPrice.findByProductAndUnit(product.product_id, unit_id, user_id);
+    if (currentPrice) {
+      // If current price exists and user provided a different price, update it
+      if (retail_price && parseFloat(retail_price) !== parseFloat(currentPrice.retail_price)) {
+        console.log(`Updating retail price from ${currentPrice.retail_price} to ${retail_price}`);
+        await CurrentPrice.updateRetailPrice(product.product_id, unit_id, user_id, retail_price);
+      }
+    } else {
+      // Create new current price record
+      console.log('Creating new current price record...');
+      await CurrentPrice.upsert({
+        product_id: product.product_id,
+        unit_id: unit_id,
+        user_id: user_id,
+        retail_price: retail_price || 0.00,
+        order_price: 0.00 // Default order price
+      });
+    }
 
     // Fetch the inventory
     let inventory = await Inventory.findByProductAndUser(product.product_id, user_id);
@@ -53,7 +75,10 @@ exports.addSale = async (req, res) => {
     };
     const saleId = await Sale.create(sale);
 
-    res.status(201).json({ saleId });
+    res.status(201).json({ 
+      saleId,
+      message: 'Sale added successfully and price records updated'
+    });
   } catch (error) {
     console.error('Error adding sale:', error);
     res.status(500).json({ error: error.message });
@@ -193,6 +218,36 @@ exports.deleteSale = async (req, res) => {
     res.status(200).json({ message: 'Sale deleted successfully' });
   } catch (error) {
     console.error('Error deleting sale:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get price suggestions for a sale (retail price)
+exports.getPriceSuggestions = async (req, res) => {
+  try {
+    const { productId, unitId } = req.params;
+    const user_id = req.user.id;
+
+    console.log(`Getting retail price suggestions for product ${productId}, unit ${unitId}, user ${user_id}`);
+
+    const currentPrice = await CurrentPrice.findByProductAndUnit(productId, unitId, user_id);
+    
+    if (currentPrice) {
+      res.status(200).json({
+        suggested_retail_price: currentPrice.retail_price,
+        last_updated: currentPrice.last_updated,
+        has_price_history: true
+      });
+    } else {
+      res.status(200).json({
+        suggested_retail_price: 0.00,
+        last_updated: null,
+        has_price_history: false,
+        message: 'No price history found for this product-unit combination'
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching retail price suggestions:', error);
     res.status(500).json({ error: error.message });
   }
 };

@@ -2,6 +2,7 @@ const Purchase = require('../models/Purchase');
 const Product = require('../models/Product');
 const Inventory = require('../models/Inventory');
 const Unit = require('../models/Unit');
+const CurrentPrice = require('../models/CurrentPrice');
 const convertUnits = require('../utils/unitConversion');
 const db = require('../config/db');
 const moment = require('moment');
@@ -30,6 +31,27 @@ exports.addPurchase = async (req, res) => {
     const product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
     if (!product) throw new Error('Product not found');
     console.log('Product found:', product);
+
+    // Check/Update CurrentPrice for this product-unit combination
+    console.log('Checking/Updating current price...');
+    const currentPrice = await CurrentPrice.findByProductAndUnit(product.product_id, unit_id, user_id);
+    if (currentPrice) {
+      // If current price exists and user provided a different price, update it
+      if (order_price && parseFloat(order_price) !== parseFloat(currentPrice.order_price)) {
+        console.log(`Updating order price from ${currentPrice.order_price} to ${order_price}`);
+        await CurrentPrice.updateOrderPrice(product.product_id, unit_id, user_id, order_price);
+      }
+    } else {
+      // Create new current price record
+      console.log('Creating new current price record...');
+      await CurrentPrice.upsert({
+        product_id: product.product_id,
+        unit_id: unit_id,
+        user_id: user_id,
+        retail_price: 0.00, // Default retail price
+        order_price: order_price || 0.00
+      });
+    }
 
     // Fetch the inventory
     console.log('Fetching inventory...');
@@ -71,7 +93,10 @@ exports.addPurchase = async (req, res) => {
     const purchaseId = await Purchase.create(purchase);
     console.log('Purchase created with ID:', purchaseId);
 
-    res.status(201).json({ purchaseId });
+    res.status(201).json({ 
+      purchaseId,
+      message: 'Purchase added successfully and price records updated'
+    });
     console.log('=== ADD PURCHASE SUCCESS ===');
   } catch (error) {
     console.error('=== ADD PURCHASE ERROR ===');
@@ -195,6 +220,36 @@ exports.deletePurchase = async (req, res) => {
     res.status(200).json({ message: 'Purchase deleted successfully' });
   } catch (error) {
     console.error('Error deleting purchase:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get price suggestions for a purchase (order price)
+exports.getPriceSuggestions = async (req, res) => {
+  try {
+    const { productId, unitId } = req.params;
+    const user_id = req.user.id;
+
+    console.log(`Getting price suggestions for product ${productId}, unit ${unitId}, user ${user_id}`);
+
+    const currentPrice = await CurrentPrice.findByProductAndUnit(productId, unitId, user_id);
+    
+    if (currentPrice) {
+      res.status(200).json({
+        suggested_order_price: currentPrice.order_price,
+        last_updated: currentPrice.last_updated,
+        has_price_history: true
+      });
+    } else {
+      res.status(200).json({
+        suggested_order_price: 0.00,
+        last_updated: null,
+        has_price_history: false,
+        message: 'No price history found for this product-unit combination'
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching price suggestions:', error);
     res.status(500).json({ error: error.message });
   }
 };

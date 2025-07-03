@@ -1,12 +1,11 @@
-
-
 const db = require('../config/db');
 
 const Unit = {
   // Create a new unit
-  create: async (unit) => {
+  create: async (unit, connection = null) => {
     const { product_id, unit_type, unit_category, opposite_unit_id, prepackaged, user_id } = unit;
-    const [result] = await db.query(
+    const dbConnection = connection || db; // Use provided connection or default db
+    const [result] = await dbConnection.query(
       'INSERT INTO Units (product_id, unit_type, unit_category, opposite_unit_id, prepackaged, user_id) VALUES (?, ?, ?, ?, ?, ?)',
       [product_id, unit_type, unit_category, opposite_unit_id, prepackaged, user_id]
     );
@@ -26,11 +25,15 @@ const Unit = {
       u.unit_id, 
       u.product_id,
       p.product_name,  -- Product name
+      p.variety,       -- Product variety
       u.unit_type, 
       u.unit_category, 
       u.prepackaged,
       ou.unit_type AS opposite_unit_type,  -- Fetching the name of the opposite unit
-      uc.conversion_rate -- Fetching the conversion rate between the units
+      uc.conversion_rate, -- Fetching the conversion rate between the units
+      COALESCE(cp.order_price, 0.00) as order_price,
+      COALESCE(cp.retail_price, 0.00) as retail_price,
+      cp.last_updated as price_last_updated
     FROM 
       Units u
     LEFT JOIN 
@@ -39,6 +42,8 @@ const Unit = {
       Products p ON u.product_id = p.product_id  -- Join to get product name
     LEFT JOIN 
       Unit_Conversion uc ON uc.from_unit_id = u.unit_id AND uc.to_unit_id = ou.unit_id  -- Join to get conversion rate
+    LEFT JOIN 
+      CurrentPrice cp ON cp.product_id = u.product_id AND cp.unit_id = u.unit_id AND cp.user_id = u.user_id  -- Join to get current prices
     WHERE 
       u.user_id = ?
 `, 
@@ -97,9 +102,10 @@ findByProductIdAndUser: async (product_id, user_id) => {
   },
 
   // Update unit by unit ID and user ID
-  updateByIdAndUser: async (unitId, userId, updatedUnit) => {
+  updateByIdAndUser: async (unitId, userId, updatedUnit, connection = null) => {
     const { product_id, unit_type, unit_category, opposite_unit_id, prepackaged } = updatedUnit;
-    const [result] = await db.query(
+    const dbConnection = connection || db; // Use provided connection or default db
+    const [result] = await dbConnection.query(
       'UPDATE Units SET product_id = ?, unit_type = ?, unit_category = ?, opposite_unit_id = ?, prepackaged = ? WHERE unit_id = ? AND user_id = ?',
       [product_id, unit_type, unit_category, opposite_unit_id, prepackaged, unitId, userId]
     );

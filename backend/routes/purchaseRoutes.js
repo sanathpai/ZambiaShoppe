@@ -4,6 +4,7 @@ const purchaseController = require('../controllers/purchaseController');
 const auth = require('../src/middleware/auth');
 
 router.post('/', auth, purchaseController.addPurchase);
+router.get('/price-suggestions/:productId/:unitId', auth, purchaseController.getPriceSuggestions);
 router.get('/', auth, purchaseController.getAllPurchases);
 router.get('/:id', auth, purchaseController.getPurchaseById); 
 router.put('/:id', auth, purchaseController.updatePurchase); 

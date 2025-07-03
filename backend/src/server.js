@@ -31,6 +31,7 @@ const saleRoutes = require('../routes/saleRoutes');
 const inventoryRoutes = require('../routes/inventoryRoutes');
 const shopRoutes = require('../routes/shopRoutes');
 const unitRoutes = require('../routes/unitRoutes');
+const currentPriceRoutes = require('../routes/currentPriceRoutes');
 const productOfferingRoutes = require('../routes/productOfferingRoutes');
 const marketRoutes = require('../routes/marketRoutes');
 const supplierRoutes = require('../routes/supplierRoutes');
@@ -66,6 +67,18 @@ app.use(session({ secret: process.env.SESSION_SECRET, resave: false, saveUniniti
 app.use(passport.initialize());
 app.use(passport.session());
 
+// DEBUG MIDDLEWARE - Add this to track all requests
+app.use((req, res, next) => {
+  console.log(`=== REQUEST DEBUG ===`);
+  console.log(`Method: ${req.method}`);
+  console.log(`URL: ${req.url}`);
+  console.log(`Path: ${req.path}`);
+  console.log(`Headers:`, req.headers);
+  console.log(`Body:`, req.body);
+  console.log(`==================`);
+  next();
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/purchases', purchaseRoutes);
@@ -73,6 +86,7 @@ app.use('/api/sales', saleRoutes);
 app.use('/api/inventories', inventoryRoutes);
 app.use('/api/shops', shopRoutes);
 app.use('/api/units', unitRoutes);
+app.use('/api/current-prices', currentPriceRoutes);
 app.use('/api/productOfferings', productOfferingRoutes);
 app.use('/api/markets', marketRoutes);
 app.use('/api/suppliers', supplierRoutes);
