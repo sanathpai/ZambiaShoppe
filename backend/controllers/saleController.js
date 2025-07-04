@@ -9,7 +9,7 @@ const moment = require('moment');
 // Add a new sale and update inventory stock
 exports.addSale = async (req, res) => {
   try {
-    const { product_name, variety, retail_price, quantity, sale_date, unit_id } = req.body;
+    const { product_name, variety, retail_price, quantity, sale_date, unit_id, brand } = req.body;
     const user_id = req.user.id;
 
     // Fetch shop_name from Users table
@@ -17,8 +17,16 @@ exports.addSale = async (req, res) => {
     if (!user.length) throw new Error('User not found');
     const shop_name = user[0].shop_name;
 
-    // Fetch product details
-    const product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
+    // Fetch product details - try with brand first, then without
+    let product;
+    if (brand) {
+      console.log('Trying to find product with brand...');
+      product = await Product.findByNameAndVarietyAndBrandAndUser(product_name, variety, brand, user_id);
+    }
+    if (!product) {
+      console.log('Trying to find product without brand...');
+      product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
+    }
     if (!product) throw new Error('Product not found');
 
     // Check/Update CurrentPrice for this product-unit combination
@@ -120,13 +128,22 @@ exports.updateSale = async (req, res) => {
   try {
     const user_id = req.user.id;
     const saleId = req.params.id;
-    const { product_name, variety, retail_price, quantity, sale_date, unit_id } = req.body;
+    const { product_name, variety, retail_price, quantity, sale_date, unit_id, brand } = req.body;
 
     // Fetch the old sale details
     const oldSale = await Sale.findByIdAndUser(saleId, user_id);
     if (!oldSale) throw new Error('Sale not found');
 
-    const product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
+    // Fetch product details - try with brand first, then without
+    let product;
+    if (brand) {
+      console.log('Trying to find product with brand...');
+      product = await Product.findByNameAndVarietyAndBrandAndUser(product_name, variety, brand, user_id);
+    }
+    if (!product) {
+      console.log('Trying to find product without brand...');
+      product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
+    }
     if (!product) throw new Error('Product not found');
 
     let inventory = await Inventory.findByProductAndUser(product.product_id, user_id);

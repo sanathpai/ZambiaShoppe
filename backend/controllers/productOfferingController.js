@@ -7,7 +7,7 @@ const db = require('../config/db');
 exports.addProductOffering = async (req, res) => {
   try {
     const user_id = req.user.id;
-    const { shop_name, product_name, variety, price, unit_id } = req.body;
+    const { shop_name, product_name, variety, brand, price, unit_id } = req.body;
 
     const shop = await Shop.findByNameAndUser(shop_name, user_id);
     if (!shop) {
@@ -15,7 +15,14 @@ exports.addProductOffering = async (req, res) => {
     }
     const shop_id = shop.shop_id;
 
-    const product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
+    // Find product by name, variety, and brand
+    let product;
+    if (brand) {
+      product = await Product.findByNameAndVarietyAndBrandAndUser(product_name, variety || '', brand, user_id);
+    } else {
+      product = await Product.findByNameAndVarietyAndUser(product_name, variety || '', user_id);
+    }
+    
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }

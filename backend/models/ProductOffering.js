@@ -58,7 +58,8 @@ const ProductOfferings = {
       SELECT 
         ProductOfferings.offering_id, 
         Products.product_name, 
-        Products.variety 
+        Products.variety,
+        Products.brand
       FROM ProductOfferings
       JOIN Products ON ProductOfferings.product_id = Products.product_id
       WHERE ProductOfferings.user_id = ?

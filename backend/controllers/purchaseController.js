@@ -14,10 +14,10 @@ exports.addPurchase = async (req, res) => {
     console.log('Request body:', req.body);
     console.log('User:', req.user);
     
-    const { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category } = req.body;
+    const { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category, brand } = req.body;
     const user_id = req.user.id;
 
-    console.log('Extracted data:', { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category, user_id });
+    console.log('Extracted data:', { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category, user_id, brand });
 
     // Fetch shop_name from Users table
     console.log('Fetching user shop_name...');
@@ -26,9 +26,17 @@ exports.addPurchase = async (req, res) => {
     const shop_name = user[0].shop_name;
     console.log('Shop name:', shop_name);
 
-    // Fetch product details
+    // Fetch product details - try with brand first, then without
     console.log('Fetching product details...');
-    const product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
+    let product;
+    if (brand) {
+      console.log('Trying to find product with brand...');
+      product = await Product.findByNameAndVarietyAndBrandAndUser(product_name, variety, brand, user_id);
+    }
+    if (!product) {
+      console.log('Trying to find product without brand...');
+      product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
+    }
     if (!product) throw new Error('Product not found');
     console.log('Product found:', product);
 

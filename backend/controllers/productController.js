@@ -6,7 +6,7 @@ exports.createProduct = async (req, res) => {
   const connection = await db.getConnection(); // Get the DB connection
   try {
     const user_id = req.user.id; // Authenticated user's ID
-    const { product_name, variety, category, description } = req.body;
+    const { product_name, variety, category, brand, description } = req.body;
 
     console.log(`Starting product creation process for user: ${user_id}`);
 
@@ -14,15 +14,18 @@ exports.createProduct = async (req, res) => {
     await connection.beginTransaction();
     console.log('Transaction started.');
 
-    // Check if the product with the same name and variety already exists
-    const existingProduct = await Product.findByNameAndVariety(product_name, variety, user_id);
+    // Check if the product with the same name, variety, and brand already exists
+    const existingProduct = brand 
+      ? await Product.findByNameAndVarietyAndBrandAndUser(product_name, variety, brand, user_id)
+      : await Product.findByNameAndVariety(product_name, variety, user_id);
+    
     if (existingProduct) {
-      console.log(`Product with the same name and variety already exists for user: ${user_id}`);
+      console.log(`Product with the same name, variety, and brand already exists for user: ${user_id}`);
       await connection.rollback(); // Rollback the transaction
-      return res.status(400).json({ error: 'A product with the same name and variety already exists for this user.' });
+      return res.status(400).json({ error: 'A product with the same name, variety, and brand already exists for this user.' });
     }
 
-    const productData = { product_name, variety, category, description, user_id };
+    const productData = { product_name, variety, category, brand, description, user_id };
     console.log(`Creating product: ${JSON.stringify(productData)}`);
 
     // Step 1: Create the product
@@ -79,6 +82,7 @@ exports.copyProduct = async (req, res) => {
       product_name: productData.product_name,
       category: productData.category,
       variety: productData.variety,
+      brand: productData.brand,
       description: productData.description,
       price: productData.price,
       user_id
@@ -100,12 +104,13 @@ exports.copyProduct = async (req, res) => {
 // Search products
 exports.searchProducts = async (req, res) => {
   try {
+    const user_id = req.user.id;
     const query = req.query.q; // Get the search query from the request
     const [rows] = await db.query(
-      `SELECT DISTINCT product_name, variety, category, description, price 
+      `SELECT DISTINCT product_name, variety, category, brand, description, price 
        FROM Products 
-       WHERE product_name LIKE ? OR variety LIKE ?`,
-      [`%${query}%`, `%${query}%`]
+       WHERE user_id = ? AND (product_name LIKE ? OR variety LIKE ? OR brand LIKE ?)`,
+      [user_id, `%${query}%`, `%${query}%`, `%${query}%`]
     );
     
     if (rows.length === 0) {
@@ -228,5 +233,20 @@ exports.getProductUsage = async (req, res) => {
   } catch (error) {
     console.error('Error fetching product usage statistics:', error);
     res.status(500).json({ error: `An error occurred while fetching product usage statistics: ${error.message}` });
+  }
+};
+
+// Get brands for a specific product name
+exports.getBrandsByProductName = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const { productName } = req.params;
+    
+    const brands = await Product.getBrandsByProductName(productName, user_id);
+    
+    res.status(200).json({ brands });
+  } catch (error) {
+    console.error('Error fetching brands for product:', error);
+    res.status(500).json({ error: `An error occurred while fetching brands: ${error.message}` });
   }
 };
