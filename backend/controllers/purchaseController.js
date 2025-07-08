@@ -238,26 +238,88 @@ exports.getPriceSuggestions = async (req, res) => {
     const { productId, unitId } = req.params;
     const user_id = req.user.id;
 
-    console.log(`Getting price suggestions for product ${productId}, unit ${unitId}, user ${user_id}`);
+    console.log(`Getting order price suggestions for product ${productId}, unit ${unitId}, user ${user_id}`);
 
-    const currentPrice = await CurrentPrice.findByProductAndUnit(productId, unitId, user_id);
-    
-    if (currentPrice) {
-      res.status(200).json({
-        suggested_order_price: currentPrice.order_price,
-        last_updated: currentPrice.last_updated,
-        has_price_history: true
-      });
-    } else {
-      res.status(200).json({
+    // First, get the selected unit details to check its category
+    const [unitRows] = await db.query(`
+      SELECT unit_id, unit_type, unit_category, opposite_unit_id
+      FROM Units 
+      WHERE unit_id = ? AND user_id = ?
+    `, [unitId, user_id]);
+
+    if (!unitRows.length) {
+      return res.status(404).json({
         suggested_order_price: 0.00,
         last_updated: null,
         has_price_history: false,
-        message: 'No price history found for this product-unit combination'
+        message: 'Unit not found'
       });
     }
+
+    const selectedUnit = unitRows[0];
+    console.log(`Selected unit: ${selectedUnit.unit_type} (${selectedUnit.unit_category})`);
+
+    // Get current price for the selected unit
+    const currentPrice = await CurrentPrice.findByProductAndUnit(productId, unitId, user_id);
+    
+    // If we have a price record and order_price > 0, use it
+    if (currentPrice && currentPrice.order_price > 0) {
+      console.log(`Found order price ${currentPrice.order_price} for selected unit`);
+      return res.status(200).json({
+        suggested_order_price: currentPrice.order_price,
+        last_updated: currentPrice.last_updated,
+        has_price_history: true,
+        source: `${selectedUnit.unit_type} (${selectedUnit.unit_category})`
+      });
+    }
+
+    // NEW: If selected unit is a selling unit and has retail_price > 0, show that as reference
+    if (selectedUnit.unit_category === 'selling' && currentPrice && currentPrice.retail_price > 0) {
+      console.log(`Found retail price ${currentPrice.retail_price} for selling unit - showing as reference`);
+      return res.status(200).json({
+        suggested_order_price: currentPrice.retail_price,
+        last_updated: currentPrice.last_updated,
+        has_price_history: true,
+        source: `${selectedUnit.unit_type} (${selectedUnit.unit_category}) - Retail Price as Reference`
+      });
+    }
+
+    // If selected unit is a selling unit or has order_price = 0, 
+    // try to find a buying unit for this product with a valid order price
+    if (selectedUnit.unit_category === 'selling' || !currentPrice || currentPrice.order_price === 0) {
+      console.log(`Selected unit is selling or has no order price. Looking for buying units...`);
+      
+      const [buyingUnitsWithPrices] = await db.query(`
+        SELECT u.unit_id, u.unit_type, u.unit_category, cp.order_price, cp.last_updated
+        FROM Units u
+        LEFT JOIN CurrentPrice cp ON u.unit_id = cp.unit_id AND u.product_id = cp.product_id AND u.user_id = cp.user_id
+        WHERE u.product_id = ? AND u.user_id = ? AND u.unit_category = 'buying' AND cp.order_price > 0
+        ORDER BY cp.last_updated DESC
+        LIMIT 1
+      `, [productId, user_id]);
+
+      if (buyingUnitsWithPrices.length > 0) {
+        const buyingUnit = buyingUnitsWithPrices[0];
+        console.log(`Found order price ${buyingUnit.order_price} from buying unit ${buyingUnit.unit_type}`);
+        return res.status(200).json({
+          suggested_order_price: buyingUnit.order_price,
+          last_updated: buyingUnit.last_updated,
+          has_price_history: true,
+          source: `${buyingUnit.unit_type} (${buyingUnit.unit_category})`
+        });
+      }
+    }
+
+    // No valid order price found anywhere
+    console.log(`No order price found for product ${productId}`);
+    res.status(200).json({
+      suggested_order_price: 0.00,
+      last_updated: null,
+      has_price_history: false,
+      message: 'No order price history found for this product'
+    });
   } catch (error) {
-    console.error('Error fetching price suggestions:', error);
+    console.error('Error fetching order price suggestions:', error);
     res.status(500).json({ error: error.message });
   }
 };
