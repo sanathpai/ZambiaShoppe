@@ -46,8 +46,8 @@ const Product = {
   },
   getBrandsByProductName: async (product_name, user_id) => {
     const [rows] = await db.query(
-      'SELECT DISTINCT brand FROM Products WHERE product_name LIKE ? AND user_id = ? AND brand IS NOT NULL AND brand != ""',
-      [`%${product_name}%`, user_id]
+      'SELECT DISTINCT brand FROM Products WHERE product_name LIKE ? AND brand IS NOT NULL AND brand != ""',
+      [`%${product_name}%`]
     );
     return rows.map(row => row.brand);
   },

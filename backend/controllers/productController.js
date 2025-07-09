@@ -104,13 +104,12 @@ exports.copyProduct = async (req, res) => {
 // Search products
 exports.searchProducts = async (req, res) => {
   try {
-    const user_id = req.user.id;
     const query = req.query.q; // Get the search query from the request
     const [rows] = await db.query(
       `SELECT DISTINCT product_name, variety, category, brand, description, price 
        FROM Products 
-       WHERE user_id = ? AND (product_name LIKE ? OR variety LIKE ? OR brand LIKE ?)`,
-      [user_id, `%${query}%`, `%${query}%`, `%${query}%`]
+       WHERE (product_name LIKE ? OR variety LIKE ? OR brand LIKE ?)`,
+      [`%${query}%`, `%${query}%`, `%${query}%`]
     );
     
     if (rows.length === 0) {
