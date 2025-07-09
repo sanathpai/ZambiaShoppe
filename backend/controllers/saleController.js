@@ -5,19 +5,44 @@ const CurrentPrice = require('../models/CurrentPrice');
 const convertUnits = require('../utils/unitConversion');
 const db = require('../config/db');
 const moment = require('moment');
+const Unit = require('../models/Unit'); // Added missing import for Unit
 
 // Add a new sale and update inventory stock
 exports.addSale = async (req, res) => {
   try {
+    console.log('=== SALE CREATION DEBUG START ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('User ID:', req.user.id);
+    
     const { product_name, variety, retail_price, quantity, sale_date, unit_id, brand } = req.body;
     const user_id = req.user.id;
 
+    // Validate required fields
+    if (!product_name || product_name.trim() === '') {
+      throw new Error('Product name is required');
+    }
+    if (!quantity || isNaN(quantity) || parseFloat(quantity) <= 0) {
+      throw new Error('Valid quantity is required');
+    }
+    if (!unit_id) {
+      throw new Error('Unit ID is required');
+    }
+    if (!sale_date) {
+      throw new Error('Sale date is required');
+    }
+
+    console.log('✅ Basic validation passed');
+
     // Fetch shop_name from Users table
+    console.log('🔍 Fetching user shop name...');
     const [user] = await db.query('SELECT shop_name FROM Users WHERE id = ?', [user_id]);
     if (!user.length) throw new Error('User not found');
     const shop_name = user[0].shop_name;
+    console.log('✅ Shop name found:', shop_name);
 
     // Fetch product details - try with brand first, then without
+    console.log('🔍 Searching for product...');
+    console.log('Search criteria:', { product_name, variety, brand, user_id });
     let product;
     if (brand) {
       console.log('Trying to find product with brand...');
@@ -27,10 +52,13 @@ exports.addSale = async (req, res) => {
       console.log('Trying to find product without brand...');
       product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
     }
-    if (!product) throw new Error('Product not found');
+    if (!product) {
+      throw new Error(`Product not found with name: "${product_name}", variety: "${variety}", brand: "${brand}"`);
+    }
+    console.log('✅ Product found:', { product_id: product.product_id, product_name: product.product_name });
 
     // Check/Update CurrentPrice for this product-unit combination
-    console.log('Checking/Updating current retail price...');
+    console.log('🔍 Checking/Updating current retail price...');
     const currentPrice = await CurrentPrice.findByProductAndUnit(product.product_id, unit_id, user_id);
     if (currentPrice) {
       // If current price exists and user provided a different price, update it
@@ -49,29 +77,54 @@ exports.addSale = async (req, res) => {
         order_price: 0.00 // Default order price
       });
     }
+    console.log('✅ Price records updated');
 
     // Fetch the inventory
+    console.log('🔍 Fetching inventory...');
     let inventory = await Inventory.findByProductAndUser(product.product_id, user_id);
     if (!inventory) {
-      throw new Error('Inventory not found. Please add the item to inventory first.');
+      throw new Error(`Inventory not found for product "${product_name}". Please add the item to inventory first.`);
     }
+    console.log('✅ Inventory found:', { 
+      inventory_id: inventory.inventory_id, 
+      current_stock: inventory.current_stock, 
+      unit_id: inventory.unit_id 
+    });
 
     // **Log the unit_ids for debugging**
-    console.log(`Converting from unit_id: ${unit_id} to inventory.unit_id: ${inventory.unit_id}`);
+    console.log('🔧 Unit conversion details:');
+    console.log(`- Sale unit ID: ${unit_id}`);
+    console.log(`- Inventory unit ID: ${inventory.unit_id}`);
+    console.log(`- Sale quantity: ${quantity}`);
 
     // Convert sale quantity to inventory unit type
-    const convertedQuantity = await convertUnits(quantity, unit_id, inventory.unit_id);
-
-    // Ensure sufficient stock is available
-    if (parseFloat(inventory.current_stock) < parseFloat(convertedQuantity)) {
-      throw new Error('Insufficient stock available');
+    console.log('🔄 Converting units...');
+    let convertedQuantity;
+    try {
+      convertedQuantity = await convertUnits(quantity, unit_id, inventory.unit_id);
+      console.log('✅ Unit conversion successful:', convertedQuantity);
+    } catch (conversionError) {
+      console.error('❌ Unit conversion failed:', conversionError.message);
+      throw new Error(`Unit conversion failed: ${conversionError.message}. This usually means there's no conversion rate set up between the sale unit and inventory unit. Please check your unit setup.`);
     }
 
+    // Ensure sufficient stock is available
+    console.log('📦 Checking stock availability...');
+    console.log(`- Current stock: ${inventory.current_stock}`);
+    console.log(`- Required (converted): ${convertedQuantity}`);
+    if (parseFloat(inventory.current_stock) < parseFloat(convertedQuantity)) {
+      throw new Error(`Insufficient stock available. Current stock: ${inventory.current_stock}, Required: ${convertedQuantity}`);
+    }
+    console.log('✅ Sufficient stock available');
+
     // Update the inventory stock
+    console.log('📝 Updating inventory stock...');
     const newStock = parseFloat(inventory.current_stock) - parseFloat(convertedQuantity);
     await Inventory.update(inventory.inventory_id, { ...inventory, current_stock: newStock });
+    console.log('✅ Inventory updated, new stock:', newStock);
 
     // Add sale entry
+    console.log('💾 Creating sale record...');
     const sale = {
       product_id: product.product_id,
       retail_price,
@@ -82,13 +135,17 @@ exports.addSale = async (req, res) => {
       shop_name
     };
     const saleId = await Sale.create(sale);
+    console.log('✅ Sale created with ID:', saleId);
 
+    console.log('=== SALE CREATION DEBUG END ===');
     res.status(201).json({ 
       saleId,
       message: 'Sale added successfully and price records updated'
     });
   } catch (error) {
-    console.error('Error adding sale:', error);
+    console.error('❌ ERROR in addSale:', error.message);
+    console.error('❌ Full error:', error);
+    console.log('=== SALE CREATION DEBUG END (ERROR) ===');
     res.status(500).json({ error: error.message });
   }
 };
@@ -327,6 +384,101 @@ exports.getPriceSuggestions = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching retail price suggestions:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Diagnostic endpoint to help troubleshoot sales issues
+exports.diagnoseSaleIssues = async (req, res) => {
+  try {
+    const { product_name, variety, brand, unit_id } = req.query;
+    const user_id = req.user.id;
+    
+    console.log('🔍 DIAGNOSTIC: Sale Issues Debug');
+    console.log('Parameters:', { product_name, variety, brand, unit_id, user_id });
+    
+    const issues = [];
+    const info = {};
+    
+    // 1. Check if product exists
+    let product;
+    if (brand) {
+      product = await Product.findByNameAndVarietyAndBrandAndUser(product_name, variety, brand, user_id);
+    }
+    if (!product) {
+      product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
+    }
+    
+    if (!product) {
+      issues.push(`Product not found: "${product_name}" with variety: "${variety}" and brand: "${brand}"`);
+      
+      // Suggest similar products
+      const [similarProducts] = await db.query(
+        'SELECT product_name, variety, brand FROM Products WHERE user_id = ? AND (product_name LIKE ? OR variety LIKE ?)',
+        [user_id, `%${product_name}%`, `%${variety}%`]
+      );
+      info.similarProducts = similarProducts;
+    } else {
+      info.product = product;
+      console.log('✅ Product found:', product);
+      
+      // 2. Check if inventory exists
+      const inventory = await Inventory.findByProductAndUser(product.product_id, user_id);
+      if (!inventory) {
+        issues.push(`No inventory found for product "${product_name}"`);
+      } else {
+        info.inventory = inventory;
+        console.log('✅ Inventory found:', inventory);
+        
+        // 3. Check unit conversion if unit_id provided
+        if (unit_id) {
+          try {
+            const conversionRate = await convertUnits(1, unit_id, inventory.unit_id);
+            info.conversionRate = conversionRate;
+            console.log('✅ Unit conversion successful:', conversionRate);
+          } catch (conversionError) {
+            issues.push(`Unit conversion failed: ${conversionError.message}`);
+            
+            // Check if units exist
+            const [saleUnit] = await db.query('SELECT * FROM Units WHERE unit_id = ?', [unit_id]);
+            const [inventoryUnit] = await db.query('SELECT * FROM Units WHERE unit_id = ?', [inventory.unit_id]);
+            
+            info.saleUnit = saleUnit[0] || null;
+            info.inventoryUnit = inventoryUnit[0] || null;
+            
+            // Check conversion paths
+            const [conversions] = await db.query(
+              'SELECT * FROM Unit_Conversion WHERE (from_unit_id = ? AND to_unit_id = ?) OR (from_unit_id = ? AND to_unit_id = ?)',
+              [unit_id, inventory.unit_id, inventory.unit_id, unit_id]
+            );
+            info.availableConversions = conversions;
+          }
+        }
+      }
+    }
+    
+    // 4. Get all products for this user
+    const allProducts = await Product.findAllByUser(user_id);
+    info.totalProducts = allProducts.length;
+    
+    // 5. Get all units for this user
+    const allUnits = await Unit.findAllByUser(user_id);
+    info.totalUnits = allUnits.length;
+    
+    res.json({
+      success: issues.length === 0,
+      issues,
+      info,
+      recommendations: issues.length > 0 ? [
+        "Check if the product name, variety, and brand match exactly what's in your database",
+        "Ensure you have inventory set up for this product",
+        "Verify that unit conversion rates are properly configured between sale units and inventory units",
+        "Check that all required units exist in your system"
+      ] : []
+    });
+    
+  } catch (error) {
+    console.error('Error in diagnostic:', error);
     res.status(500).json({ error: error.message });
   }
 };

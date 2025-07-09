@@ -17,6 +17,20 @@ exports.addPurchase = async (req, res) => {
     const { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category, brand } = req.body;
     const user_id = req.user.id;
 
+    // Validate required fields
+    if (!product_name || product_name.trim() === '') {
+      throw new Error('Product name is required');
+    }
+    if (!quantity || isNaN(quantity) || parseFloat(quantity) <= 0) {
+      throw new Error('Valid quantity is required');
+    }
+    if (!unit_id) {
+      throw new Error('Unit ID is required');
+    }
+    if (!purchase_date) {
+      throw new Error('Purchase date is required');
+    }
+
     console.log('Extracted data:', { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category, user_id, brand });
 
     // Fetch shop_name from Users table
@@ -65,7 +79,22 @@ exports.addPurchase = async (req, res) => {
     console.log('Fetching inventory...');
     let inventory = await Inventory.findByProductAndUser(product.product_id, user_id);
     if (!inventory) {
-      throw new Error('Inventory not found. Please add the item to inventory first.');
+      console.log('No inventory found. Creating new inventory record...');
+      // Create a new inventory record with 0 stock
+      const inventoryData = {
+        product_id: product.product_id,
+        current_stock: 0,
+        user_id: user_id,
+        unit_id: unit_id, // Use the purchase unit as the inventory unit
+        shop_name: shop_name,
+        stock_limit: 0 // Default stock limit
+      };
+      const inventoryId = await Inventory.create(inventoryData);
+      console.log('New inventory created with ID:', inventoryId);
+      
+      // Fetch the newly created inventory
+      inventory = await Inventory.findByProductAndUser(product.product_id, user_id);
+      console.log('Newly created inventory:', inventory);
     }
     console.log('Inventory found:', inventory);
 
@@ -74,8 +103,14 @@ exports.addPurchase = async (req, res) => {
 
     // Convert purchased quantity to inventory unit type
     console.log('Converting units...');
-    const convertedQuantity = await convertUnits(quantity, unit_id, inventory.unit_id);
-    console.log('Converted quantity:', convertedQuantity);
+    let convertedQuantity;
+    try {
+      convertedQuantity = await convertUnits(quantity, unit_id, inventory.unit_id);
+      console.log('Converted quantity:', convertedQuantity);
+    } catch (conversionError) {
+      console.error('Unit conversion failed:', conversionError);
+      throw new Error(`Unit conversion failed: ${conversionError.message}. Please check if proper unit conversion rates are set up between the purchase unit and inventory unit.`);
+    }
 
     // Update the inventory stock
     console.log('Updating inventory stock...');

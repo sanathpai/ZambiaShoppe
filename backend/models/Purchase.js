@@ -85,4 +85,4 @@ const Purchase = {
   }
 };
 
-module.exports = Purchase;
+module.exports = Purchase; 

@@ -221,6 +221,31 @@ exports.addUnit = async (req, res) => {
         console.log('- Condition for buying:', unitCategory === 'buying' && order_price && order_price.toString().trim() !== '' && !isNaN(parseFloat(order_price)));
         console.log('- Condition for selling:', unitCategory === 'selling' && retail_price && retail_price.toString().trim() !== '' && !isNaN(parseFloat(retail_price)));
       }
+
+      // Step 4: Update existing unit's price if provided
+      // When adding a buying unit, user may provide retail_price for existing selling unit
+      // When adding a selling unit, user may provide order_price for existing buying unit
+      if (unitCategory === 'buying' && retail_price && retail_price.toString().trim() !== '' && !isNaN(parseFloat(retail_price))) {
+        console.log('Updating retail price for existing selling unit:', selectedExistingUnit, 'with price:', retail_price);
+        
+        try {
+          await CurrentPrice.updateRetailPrice(product_id, selectedExistingUnit, user_id, parseFloat(retail_price));
+          console.log('✅ SUCCESS: Updated retail price for existing selling unit');
+        } catch (priceError) {
+          console.error('❌ ERROR: Failed to update existing selling unit price:', priceError);
+          throw priceError;
+        }
+      } else if (unitCategory === 'selling' && order_price && order_price.toString().trim() !== '' && !isNaN(parseFloat(order_price))) {
+        console.log('Updating order price for existing buying unit:', selectedExistingUnit, 'with price:', order_price);
+        
+        try {
+          await CurrentPrice.updateOrderPrice(product_id, selectedExistingUnit, user_id, parseFloat(order_price));
+          console.log('✅ SUCCESS: Updated order price for existing buying unit');
+        } catch (priceError) {
+          console.error('❌ ERROR: Failed to update existing buying unit price:', priceError);
+          throw priceError;
+        }
+      }
     }
 
     // Commit the transaction
@@ -533,6 +558,73 @@ WHERE u.product_id = ? AND u.user_id = ?;
     res.status(500).json({
       success: false,
       message: 'Error fetching units for the product',
+    });
+  }
+};
+
+/**
+ * Controller to fetch all units associated with a product from ALL users.
+ * This is used for search functionality on the AddUnit page.
+ * Expects:
+ * - productName as a route parameter.
+ */
+exports.getAllUnitsForProductFromAllUsers = async (req, res) => {
+  try {
+    const { productName } = req.params;
+    console.log('🎯 BACKEND: getAllUnitsForProductFromAllUsers called with productName:', productName);
+
+    if (!productName) {
+      console.log('❌ BACKEND: Missing productName parameter');
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required parameter: productName',
+      });
+    }
+
+    // Extract base product name by taking the first word and making search more flexible
+    // This helps match "Apple" with "Organic Apples", "Red Apples", etc.
+    const baseProductName = productName.split(' ')[0]; // Get first word (e.g., "Apple" from "Organic Apples")
+    console.log('🔍 BACKEND: Searching for products containing:', baseProductName);
+
+    // Query to fetch all unique unit types for products that contain the base product name
+    // This includes buying and selling units from all users in the database
+    const query = `
+      SELECT DISTINCT u.unit_type, u.unit_category, p.product_name
+      FROM Units u
+      JOIN Products p ON u.product_id = p.product_id
+      WHERE p.product_name LIKE ? OR p.product_name LIKE ?
+      ORDER BY u.unit_type, u.unit_category
+    `;
+
+    // Search for products that contain the base name in different positions
+    const searchPattern1 = `%${baseProductName}%`; // Contains the word anywhere
+    const searchPattern2 = `${baseProductName}%`;   // Starts with the word
+
+    console.log('🔍 BACKEND: Executing query with patterns:', searchPattern1, searchPattern2);
+    const [rows] = await db.query(query, [searchPattern1, searchPattern2]);
+    console.log('📊 BACKEND: Query returned', rows.length, 'rows:', rows);
+
+    // Extract unique unit types for autocomplete options, filtering out null/empty values
+    const uniqueUnitTypes = [...new Set(
+      rows
+        .map(row => row.unit_type)
+        .filter(unitType => unitType && unitType.trim() !== '') // Remove null, undefined, and empty strings
+    )];
+    console.log('✅ BACKEND: Unique unit types:', uniqueUnitTypes);
+
+    const response = {
+      success: true,
+      unitTypes: uniqueUnitTypes,
+      unitDetails: rows // Also return details for reference
+    };
+
+    console.log('📡 BACKEND: Sending response:', response);
+    res.status(200).json(response);
+  } catch (error) {
+    console.error(`💥 BACKEND ERROR fetching all units for product ${req.params.productName}:`, error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching units for the product from all users',
     });
   }
 };

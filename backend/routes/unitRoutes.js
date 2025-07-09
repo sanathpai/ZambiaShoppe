@@ -13,11 +13,17 @@ router.use((req, res, next) => {
 
 router.post('/', auth, unitController.addUnit);
 router.get('/debug-db', auth, unitController.debugDatabaseInfo);
-router.get('/:id', auth, unitController.getUnit);
-router.get('/', auth, unitController.getAllUnits);
+
+// Put more specific routes before generic ones to avoid conflicts
+router.get('/search/product/:productName', auth, unitController.getAllUnitsForProductFromAllUsers);
+router.get('/product/:productId/unitInfo', auth, unitController.getUnitsByProduct);
 router.get('/product/:productId', auth, unitController.getUnitsByProductId);
+
+// Generic routes should come last
+router.get('/', auth, unitController.getAllUnits);
+router.get('/:id', auth, unitController.getUnit);
+
 router.put('/:id', auth, unitController.updateUnit); // Ensure this is defined
 router.delete('/:id', auth, unitController.deleteUnit);
-router.get('/product/:productId/unitInfo',auth, unitController.getUnitsByProduct);
 
 module.exports = router;
