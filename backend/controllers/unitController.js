@@ -542,17 +542,15 @@ exports.getUnitsByProduct = async (req, res) => {
 
     // Query to fetch all unique units related to the product for this user
     const query = `
-     SELECT DISTINCT u.unit_id, u.unit_type
+     SELECT DISTINCT u.unit_id, u.unit_type, u.unit_category
 FROM Units u
 WHERE u.product_id = ? AND u.user_id = ?;
     `;
 
     const [rows] = await db.query(query, [productId, user_id]);
 
-    res.status(200).json({
-      success: true,
-      units: rows,
-    });
+    // Return units array directly to match frontend expectations
+    res.status(200).json(rows);
   } catch (error) {
     console.error(`Error fetching units for product ${req.params.productId}: ${error.message}`);
     res.status(500).json({

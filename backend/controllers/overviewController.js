@@ -268,6 +268,38 @@ exports.getProductsBelowThreshold = async (req, res) => {
   }
 };
 
+// Get products without inventory set
+exports.getProductsWithoutInventory = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const db = require('../config/db');
+
+    // Find all products for the user that don't have inventory records
+    const [productsWithoutInventory] = await db.query(`
+      SELECT p.product_id, p.product_name, p.variety, p.brand 
+      FROM Products p 
+      LEFT JOIN Inventories i ON p.product_id = i.product_id AND i.user_id = ?
+      WHERE p.user_id = ? AND i.product_id IS NULL
+      ORDER BY p.product_name, p.variety
+    `, [user_id, user_id]);
+
+    const formattedProducts = productsWithoutInventory.map((product) => ({
+      productId: product.product_id,
+      productName: product.product_name,
+      variety: product.variety || '',
+      brand: product.brand || '',
+    }));
+
+    res.status(200).json({
+      success: true,
+      productsWithoutInventory: formattedProducts,
+    });
+  } catch (error) {
+    console.error('Error fetching products without inventory:', error);
+    res.status(500).json({ success: false, message: 'Error fetching data' });
+  }
+};
+
 
 
 
