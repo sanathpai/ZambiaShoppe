@@ -2,11 +2,13 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 
 const Product = {
-  create: async (product) => {
-    const { product_name, category, variety, brand, description, user_id } = product;
-    const [result] = await db.query(
-      'INSERT INTO Products (product_name, category, variety, brand, description, user_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [product_name, category, variety, brand, description, user_id]
+  create: async (product, connection = null) => {
+    const { product_name, category, variety, brand, description, user_id, image } = product;
+    const dbConnection = connection || db; // Use provided connection or default db
+    
+    const [result] = await dbConnection.query(
+      'INSERT INTO Products (product_name, category, variety, brand, description, user_id, image) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [product_name, category, variety, brand, description, user_id, image]
     );
     return result.insertId;
   },

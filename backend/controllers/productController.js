@@ -6,9 +6,26 @@ exports.createProduct = async (req, res) => {
   const connection = await db.getConnection(); // Get the DB connection
   try {
     const user_id = req.user.id; // Authenticated user's ID
-    const { product_name, variety, category, brand, description } = req.body;
+    const { product_name, variety, category, brand, description, image } = req.body;
 
     console.log(`Starting product creation process for user: ${user_id}`);
+    
+    // Debug image data
+    if (image) {
+      console.log('📸 IMAGE DEBUG - Image received from frontend');
+      console.log('📸 Image data type:', typeof image);
+      console.log('📸 Image data length:', image ? image.length : 'null');
+      console.log('📸 Image data preview (first 100 chars):', image ? image.substring(0, 100) : 'null');
+      
+      // Check if it's a valid base64 image
+      if (image.startsWith('data:image/')) {
+        console.log('✅ Valid base64 image format detected');
+      } else {
+        console.warn('⚠️ Image does not appear to be valid base64 format');
+      }
+    } else {
+      console.log('📸 No image data received');
+    }
 
     // Start the transaction
     await connection.beginTransaction();
@@ -25,8 +42,11 @@ exports.createProduct = async (req, res) => {
       return res.status(400).json({ error: 'A product with the same name, variety, and brand already exists for this user.' });
     }
 
-    const productData = { product_name, variety, category, brand, description, user_id };
-    console.log(`Creating product: ${JSON.stringify(productData)}`);
+    const productData = { product_name, variety, category, brand, description, user_id, image };
+    console.log(`Creating product:`, {
+      ...productData,
+      image: image ? `[IMAGE_DATA_${image.length}_CHARS]` : 'NO_IMAGE'
+    });
 
     // Step 1: Create the product
     const productId = await Product.create(productData, connection);
@@ -38,6 +58,21 @@ exports.createProduct = async (req, res) => {
     }
 
     console.log(`Product created with ID: ${productId}`);
+    
+    // Verify the image was saved by checking the database
+    if (image) {
+      console.log('📸 Verifying image was saved to database...');
+      const [savedProduct] = await connection.query(
+        'SELECT product_id, LENGTH(image) as image_length FROM Products WHERE product_id = ?',
+        [productId]
+      );
+      
+      if (savedProduct && savedProduct[0] && savedProduct[0].image_length > 0) {
+        console.log('✅ Image successfully saved to database. Length:', savedProduct[0].image_length);
+      } else {
+        console.warn('⚠️ Image may not have been saved to database');
+      }
+    }
 
     // Commit the transaction
     await connection.commit();
@@ -46,6 +81,11 @@ exports.createProduct = async (req, res) => {
     res.status(201).json({ product_id: productId, message: 'Product created successfully! Next Step: Add Unit for the product.' });
   } catch (error) {
     console.error('Error during product creation:', error);
+    
+    // Check if it's a database size limit error
+    if (error.code === 'ER_DATA_TOO_LONG' || error.message.includes('Data too long')) {
+      console.error('❌ DATABASE ERROR - Image data too large for database field');
+    }
 
     // Rollback the transaction in case of error
     if (connection) {

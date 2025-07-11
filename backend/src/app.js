@@ -6,7 +6,10 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+
+// Increase payload size limit to handle large base64-encoded images (50MB)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Routes
 const authRoutes = require('../routes/AuthRoutes');
