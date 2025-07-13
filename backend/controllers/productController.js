@@ -303,4 +303,6 @@ exports.getBrandsByProductName = async (req, res) => {
     console.error('Error fetching brands for product:', error);
     res.status(500).json({ error: `An error occurred while fetching brands: ${error.message}` });
   }
+  
 };
+

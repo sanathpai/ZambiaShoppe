@@ -12,6 +12,7 @@ const s3Client = new S3Client({
   },
 });
 
+
 const Product = {
   create: async (product, connection = null) => {
     const { product_name, category, variety, brand, description, user_id, image } = product;
