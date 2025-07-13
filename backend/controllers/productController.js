@@ -59,6 +59,21 @@ exports.createProduct = async (req, res) => {
 
     console.log(`Product created with ID: ${productId}`);
     
+    // Step 2: Upload image to S3 if image exists
+    if (image) {
+      try {
+        const s3Url = await Product.uploadToS3(productId, image, connection);
+        if (s3Url) {
+          console.log(`✅ Image uploaded to S3: ${s3Url}`);
+        } else {
+          console.log('S3 upload skipped (S3 not configured)');
+        }
+      } catch (error) {
+        console.error('⚠️ S3 upload failed, but continuing with product creation:', error.message);
+        // Don't fail the entire operation if S3 upload fails
+      }
+    }
+    
     // Verify the image was saved by checking the database
     if (image) {
       console.log('📸 Verifying image was saved to database...');
