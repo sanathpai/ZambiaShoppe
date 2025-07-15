@@ -15,12 +15,12 @@ const s3Client = new S3Client({
 
 const Product = {
   create: async (product, connection = null) => {
-    const { product_name, category, variety, brand, description, user_id, image } = product;
+    const { product_name, variety, brand, size, user_id, image } = product;
     const dbConnection = connection || db; // Use provided connection or default db
     
     const [result] = await dbConnection.query(
-      'INSERT INTO Products (product_name, category, variety, brand, description, user_id, image) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [product_name, category, variety, brand, description, user_id, image]
+      'INSERT INTO Products (product_name, variety, brand, size, user_id, image) VALUES (?, ?, ?, ?, ?, ?)',
+      [product_name, variety, brand, size, user_id, image]
     );
     return result.insertId;
   },
@@ -95,10 +95,10 @@ const Product = {
     return rows[0];
   },
   updateByIdAndUser: async (productId, productData) => {
-    const { product_name, category, variety, brand, description, price, user_id } = productData;
+    const { product_name, variety, brand, size, price, user_id } = productData;
     const [result] = await db.query(
-      'UPDATE Products SET product_name = ?, category = ?, variety = ?, brand = ?, description = ?, price = ? WHERE product_id = ? AND user_id = ?',
-      [product_name, category, variety, brand, description, price, productId, user_id]
+      'UPDATE Products SET product_name = ?, variety = ?, brand = ?, size = ?, price = ? WHERE product_id = ? AND user_id = ?',
+      [product_name, variety, brand, size, price, productId, user_id]
     );
     return result.affectedRows > 0;
   },

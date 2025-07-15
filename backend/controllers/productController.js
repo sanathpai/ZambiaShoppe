@@ -6,7 +6,7 @@ exports.createProduct = async (req, res) => {
   const connection = await db.getConnection(); // Get the DB connection
   try {
     const user_id = req.user.id; // Authenticated user's ID
-    const { product_name, variety, category, brand, description, image } = req.body;
+    const { product_name, variety, brand, size, image } = req.body;
 
     console.log(`Starting product creation process for user: ${user_id}`);
     
@@ -42,7 +42,7 @@ exports.createProduct = async (req, res) => {
       return res.status(400).json({ error: 'A product with the same name, variety, and brand already exists for this user.' });
     }
 
-    const productData = { product_name, variety, category, brand, description, user_id, image };
+    const productData = { product_name, variety, brand, size, user_id, image };
     console.log(`Creating product:`, {
       ...productData,
       image: image ? `[IMAGE_DATA_${image.length}_CHARS]` : 'NO_IMAGE'
@@ -135,10 +135,9 @@ exports.copyProduct = async (req, res) => {
     // Create a new product entry for the current user
     const newProductData = { 
       product_name: productData.product_name,
-      category: productData.category,
       variety: productData.variety,
       brand: productData.brand,
-      description: productData.description,
+      size: productData.size || productData.description, // Handle both old and new field names
       price: productData.price,
       user_id
     };
@@ -161,7 +160,7 @@ exports.searchProducts = async (req, res) => {
   try {
     const query = req.query.q; // Get the search query from the request
     const [rows] = await db.query(
-      `SELECT DISTINCT product_name, variety, category, brand, description, price 
+      `SELECT DISTINCT product_name, variety, brand, size 
        FROM Products 
        WHERE (product_name LIKE ? OR variety LIKE ? OR brand LIKE ?)`,
       [`%${query}%`, `%${query}%`, `%${query}%`]
