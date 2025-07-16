@@ -2,10 +2,10 @@ const db = require('../config/db');
 
 const Sale = {
   create: async (sale) => {
-    const { product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id, trans_id } = sale;
+    const { product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id, trans_id, discount = 0 } = sale;
     const [result] = await db.query(
-      'INSERT INTO Sales (product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id, trans_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id, trans_id]
+      'INSERT INTO Sales (product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id, trans_id, discount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id, trans_id, discount]
     );
     return result.insertId;
   },
@@ -61,10 +61,10 @@ const Sale = {
   },
 
   updateByIdAndUser: async (saleId, sale, userId) => {
-    const { product_id, retail_price, quantity, sale_date, shop_name, unit_id, trans_id } = sale;
+    const { product_id, retail_price, quantity, sale_date, shop_name, unit_id, trans_id, discount = 0 } = sale;
     const [result] = await db.query(
-      'UPDATE Sales SET product_id = ?, retail_price = ?, quantity = ?, sale_date = ?, shop_name = ?, unit_id = ?, trans_id = ? WHERE sale_id = ? AND user_id = ?',
-      [product_id, retail_price, quantity, sale_date, shop_name, unit_id, trans_id, saleId, userId]
+      'UPDATE Sales SET product_id = ?, retail_price = ?, quantity = ?, sale_date = ?, shop_name = ?, unit_id = ?, trans_id = ?, discount = ? WHERE sale_id = ? AND user_id = ?',
+      [product_id, retail_price, quantity, sale_date, shop_name, unit_id, trans_id, discount, saleId, userId]
     );
     return result.affectedRows > 0;
   },

@@ -3,10 +3,10 @@ const db = require('../config/db');
 const Purchase = {
   // Create a new purchase
   create: async (purchase) => {
-    const { product_id, supplier_name, order_price, quantity, purchase_date, user_id, unit_id, shop_name, market_name } = purchase;
+    const { product_id, supplier_name, order_price, quantity, purchase_date, user_id, unit_id, shop_name, market_name, discount = 0 } = purchase;
     const [result] = await db.query(
-      'INSERT INTO Purchases (product_id, supplier_name, order_price, quantity, purchase_date, user_id, unit_id, shop_name, market_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [product_id, supplier_name, order_price, quantity, purchase_date, user_id, unit_id, shop_name, market_name]
+      'INSERT INTO Purchases (product_id, supplier_name, order_price, quantity, purchase_date, user_id, unit_id, shop_name, market_name, discount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [product_id, supplier_name, order_price, quantity, purchase_date, user_id, unit_id, shop_name, market_name, discount]
     );
     return result.insertId;
   },
@@ -70,10 +70,10 @@ const Purchase = {
 
   // Update an existing purchase by purchaseId and userId
   updateByIdAndUser: async (purchaseId, purchase, userId) => {
-    const { product_id, supplier_name, order_price, quantity, purchase_date, unit_id, shop_name, market_name } = purchase;
+    const { product_id, supplier_name, order_price, quantity, purchase_date, unit_id, shop_name, market_name, discount = 0 } = purchase;
     const [result] = await db.query(
-      'UPDATE Purchases SET product_id = ?, supplier_name = ?, order_price = ?, quantity = ?, purchase_date = ?, unit_id = ?, shop_name = ?, market_name = ? WHERE purchase_id = ? AND user_id = ?',
-      [product_id, supplier_name, order_price, quantity, purchase_date, unit_id, shop_name, market_name, purchaseId, userId]
+      'UPDATE Purchases SET product_id = ?, supplier_name = ?, order_price = ?, quantity = ?, purchase_date = ?, unit_id = ?, shop_name = ?, market_name = ?, discount = ? WHERE purchase_id = ? AND user_id = ?',
+      [product_id, supplier_name, order_price, quantity, purchase_date, unit_id, shop_name, market_name, discount, purchaseId, userId]
     );
     return result.affectedRows > 0;
   },

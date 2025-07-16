@@ -14,7 +14,7 @@ exports.addPurchase = async (req, res) => {
     console.log('Request body:', req.body);
     console.log('User:', req.user);
     
-    const { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category, brand } = req.body;
+    const { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category, brand, discount = 0 } = req.body;
     const user_id = req.user.id;
 
     // Validate required fields
@@ -31,7 +31,7 @@ exports.addPurchase = async (req, res) => {
       throw new Error('Purchase date is required');
     }
 
-    console.log('Extracted data:', { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category, user_id, brand });
+    console.log('Extracted data:', { product_name, variety, supplier_name, market_name, order_price, quantity, purchase_date, unit_id, unit_category, user_id, brand, discount });
 
     // Fetch shop_name from Users table
     console.log('Fetching user shop_name...');
@@ -131,6 +131,7 @@ exports.addPurchase = async (req, res) => {
       user_id,
       shop_name,
       unit_category,
+      discount,
     };
     console.log('Purchase object:', purchase);
     const purchaseId = await Purchase.create(purchase);

@@ -21,7 +21,7 @@ exports.addSale = async (req, res) => {
     console.log('Request body:', JSON.stringify(req.body, null, 2));
     console.log('User ID:', req.user.id);
     
-    const { product_name, variety, retail_price, quantity, sale_date, unit_id, brand, trans_id } = req.body;
+    const { product_name, variety, retail_price, quantity, sale_date, unit_id, brand, trans_id, discount = 0 } = req.body;
     const user_id = req.user.id;
 
     // Validate required fields
@@ -144,7 +144,8 @@ exports.addSale = async (req, res) => {
       sale_date,
       user_id,
       shop_name,
-      trans_id: transactionId
+      trans_id: transactionId,
+      discount
     };
     const saleId = await Sale.create(sale);
     console.log('✅ Sale created with ID:', saleId);
