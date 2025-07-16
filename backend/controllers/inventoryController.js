@@ -135,6 +135,36 @@ exports.updateInventory = async (req, res) => {
   }
 };
 
+// Update inventory limit (reminder limit)
+exports.updateInventoryLimit = async (req, res) => {
+  try {
+    const { stock_limit } = req.body;
+    const user_id = req.user.id;
+    const inventoryId = req.params.id;
+
+    // First verify the inventory belongs to the user
+    const inventory = await Inventory.findById(inventoryId);
+    if (!inventory) {
+      return res.status(404).json({ error: `Inventory with ID ${inventoryId} not found.` });
+    }
+
+    // Update only the stock limit
+    const [result] = await db.query(
+      'UPDATE Inventories SET stock_limit = ? WHERE inventory_id = ? AND user_id = ?',
+      [stock_limit, inventoryId, user_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: `Inventory with ID ${inventoryId} not found or you don't have permission to update it.` });
+    }
+
+    res.status(200).json({ message: 'Reminder limit updated successfully.' });
+  } catch (error) {
+    console.error('Error updating inventory limit:', error.message);
+    res.status(500).json({ error: 'An unexpected error occurred while updating the reminder limit. Please try again later.' });
+  }
+};
+
 // Delete inventory
 exports.deleteInventory = async (req, res) => {
   try {
