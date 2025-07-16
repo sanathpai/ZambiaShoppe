@@ -94,12 +94,24 @@ const Product = {
     const [rows] = await db.query('SELECT * FROM Products WHERE product_id = ? AND user_id = ?', [productId, user_id]);
     return rows[0];
   },
-  updateByIdAndUser: async (productId, productData) => {
-    const { product_name, variety, brand, size, price, user_id } = productData;
-    const [result] = await db.query(
-      'UPDATE Products SET product_name = ?, variety = ?, brand = ?, size = ?, price = ? WHERE product_id = ? AND user_id = ?',
-      [product_name, variety, brand, size, price, productId, user_id]
-    );
+  updateByIdAndUser: async (productId, productData, connection = null) => {
+    const { product_name, variety, brand, size, price, user_id, image } = productData;
+    const dbConnection = connection || db;
+    
+    let query, params;
+    
+    // Check if image is being updated
+    if (image !== undefined) {
+      // Image is being updated (could be new image or null to remove)
+      query = 'UPDATE Products SET product_name = ?, variety = ?, brand = ?, size = ?, price = ?, image = ? WHERE product_id = ? AND user_id = ?';
+      params = [product_name, variety, brand, size, price, image, productId, user_id];
+    } else {
+      // No image update, use original query
+      query = 'UPDATE Products SET product_name = ?, variety = ?, brand = ?, size = ?, price = ? WHERE product_id = ? AND user_id = ?';
+      params = [product_name, variety, brand, size, price, productId, user_id];
+    }
+    
+    const [result] = await dbConnection.query(query, params);
     return result.affectedRows > 0;
   },
   findByNameAndVarietyAndUser: async (product_name, variety, user_id) => {
