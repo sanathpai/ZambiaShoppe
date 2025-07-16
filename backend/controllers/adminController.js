@@ -114,7 +114,7 @@ FROM Sales
 JOIN Products ON Sales.product_id = Products.product_id
 JOIN Units ON Sales.unit_id = Units.unit_id
 JOIN Users ON Sales.user_id=Users.id
-ORDER BY Sales.sale_date DESC;
+ORDER BY Sales.sale_date DESC, Sales.trans_id;
   `;
   const [rows] = await db.query(query);
         res.status(200).json({success: true, data: rows});
@@ -158,7 +158,7 @@ exports.exportDataToExcel = async (req, res) => {
           JOIN Products ON Sales.product_id = Products.product_id
           JOIN Units ON Sales.unit_id = Units.unit_id
           JOIN Users ON Sales.user_id = Users.id
-          ORDER BY Sales.sale_date DESC;
+          ORDER BY Sales.sale_date DESC, Sales.trans_id;
       `);
 
       // Create a new workbook

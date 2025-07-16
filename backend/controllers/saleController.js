@@ -7,6 +7,13 @@ const db = require('../config/db');
 const moment = require('moment');
 const Unit = require('../models/Unit'); // Added missing import for Unit
 
+// Generate unique transaction ID
+const generateTransactionId = () => {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `TXN-${timestamp}-${random}`;
+};
+
 // Add a new sale and update inventory stock
 exports.addSale = async (req, res) => {
   try {
@@ -14,7 +21,7 @@ exports.addSale = async (req, res) => {
     console.log('Request body:', JSON.stringify(req.body, null, 2));
     console.log('User ID:', req.user.id);
     
-    const { product_name, variety, retail_price, quantity, sale_date, unit_id, brand } = req.body;
+    const { product_name, variety, retail_price, quantity, sale_date, unit_id, brand, trans_id } = req.body;
     const user_id = req.user.id;
 
     // Validate required fields
@@ -32,6 +39,10 @@ exports.addSale = async (req, res) => {
     }
 
     console.log('✅ Basic validation passed');
+
+    // Generate transaction ID if not provided (for backward compatibility)
+    const transactionId = trans_id || generateTransactionId();
+    console.log('🔖 Transaction ID:', transactionId);
 
     // Fetch shop_name from Users table
     console.log('🔍 Fetching user shop name...');
@@ -132,7 +143,8 @@ exports.addSale = async (req, res) => {
       unit_id,
       sale_date,
       user_id,
-      shop_name
+      shop_name,
+      trans_id: transactionId
     };
     const saleId = await Sale.create(sale);
     console.log('✅ Sale created with ID:', saleId);
@@ -140,6 +152,7 @@ exports.addSale = async (req, res) => {
     console.log('=== SALE CREATION DEBUG END ===');
     res.status(201).json({ 
       saleId,
+      transactionId: transactionId,
       message: 'Sale added successfully and price records updated'
     });
   } catch (error) {
@@ -180,12 +193,30 @@ exports.getSaleById = async (req, res) => {
   }
 };
 
+// Get sales by transaction ID for the authenticated user
+exports.getSalesByTransactionId = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const transId = req.params.transId;
+    const sales = await Sale.findByTransactionId(transId, user_id);
+
+    if (!sales || sales.length === 0) {
+      return res.status(404).json({ error: 'No sales found for this transaction ID' });
+    }
+
+    res.json(sales);
+  } catch (error) {
+    console.error('Error fetching sales by transaction ID:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Update a sale and adjust inventory stock accordingly
 exports.updateSale = async (req, res) => {
   try {
     const user_id = req.user.id;
     const saleId = req.params.id;
-    const { product_name, variety, retail_price, quantity, sale_date, unit_id, brand } = req.body;
+    const { product_name, variety, retail_price, quantity, sale_date, unit_id, brand, trans_id } = req.body;
 
     // Fetch the old sale details
     const oldSale = await Sale.findByIdAndUser(saleId, user_id);
@@ -247,7 +278,8 @@ exports.updateSale = async (req, res) => {
       sale_date,
       unit_id,
       user_id,
-      shop_name: oldSale.shop_name // Keep the old shop name
+      shop_name: oldSale.shop_name, // Keep the old shop name
+      trans_id: trans_id || oldSale.trans_id // Keep existing trans_id if not provided
     };
     const success = await Sale.updateByIdAndUser(saleId, sale, user_id);
 

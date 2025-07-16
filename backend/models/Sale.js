@@ -2,10 +2,10 @@ const db = require('../config/db');
 
 const Sale = {
   create: async (sale) => {
-    const { product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id } = sale;
+    const { product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id, trans_id } = sale;
     const [result] = await db.query(
-      'INSERT INTO Sales (product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id]
+      'INSERT INTO Sales (product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id, trans_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [product_id, retail_price, quantity, sale_date, user_id, shop_name, unit_id, trans_id]
     );
     return result.insertId;
   },
@@ -21,6 +21,7 @@ const Sale = {
       JOIN Products ON Sales.product_id = Products.product_id
       JOIN Units ON Sales.unit_id = Units.unit_id
       WHERE Sales.user_id = ?
+      ORDER BY Sales.sale_date DESC, Sales.trans_id
     `;
     const [rows] = await db.query(query, [userId]);
     return rows;
@@ -37,6 +38,7 @@ const Sale = {
       JOIN Products ON Sales.product_id = Products.product_id
       JOIN Units ON Sales.unit_id = Units.unit_id
       WHERE Sales.user_id = ? AND Sales.product_id = ?
+      ORDER BY Sales.sale_date DESC, Sales.trans_id
     `;
     const [rows] = await db.query(query, [userId,prodId]);
     return rows;
@@ -59,10 +61,10 @@ const Sale = {
   },
 
   updateByIdAndUser: async (saleId, sale, userId) => {
-    const { product_id, retail_price, quantity, sale_date, shop_name, unit_id } = sale;
+    const { product_id, retail_price, quantity, sale_date, shop_name, unit_id, trans_id } = sale;
     const [result] = await db.query(
-      'UPDATE Sales SET product_id = ?, retail_price = ?, quantity = ?, sale_date = ?, shop_name = ?, unit_id = ? WHERE sale_id = ? AND user_id = ?',
-      [product_id, retail_price, quantity, sale_date, shop_name, unit_id, saleId, userId]
+      'UPDATE Sales SET product_id = ?, retail_price = ?, quantity = ?, sale_date = ?, shop_name = ?, unit_id = ?, trans_id = ? WHERE sale_id = ? AND user_id = ?',
+      [product_id, retail_price, quantity, sale_date, shop_name, unit_id, trans_id, saleId, userId]
     );
     return result.affectedRows > 0;
   },
@@ -70,6 +72,24 @@ const Sale = {
   deleteByIdAndUser: async (saleId, userId) => {
     const [result] = await db.query('DELETE FROM Sales WHERE sale_id = ? AND user_id = ?', [saleId, userId]);
     return result.affectedRows > 0;
+  },
+
+  // New method to find sales by transaction ID
+  findByTransactionId: async (transId, userId) => {
+    const query = `
+      SELECT 
+        Sales.*, 
+        Products.product_name, 
+        Products.variety,
+        Units.unit_type
+      FROM Sales
+      JOIN Products ON Sales.product_id = Products.product_id
+      JOIN Units ON Sales.unit_id = Units.unit_id
+      WHERE Sales.trans_id = ? AND Sales.user_id = ?
+      ORDER BY Sales.sale_date DESC
+    `;
+    const [rows] = await db.query(query, [transId, userId]);
+    return rows;
   }
 };
 
