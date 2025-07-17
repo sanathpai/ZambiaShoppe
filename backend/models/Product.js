@@ -128,7 +128,7 @@ const Product = {
     );
     return rows[0];
   },
-  getBrandsByProductName: async (product_name, user_id) => {
+  getBrandsByProductName: async (product_name) => {
     const [rows] = await db.query(
       'SELECT DISTINCT brand FROM Products WHERE product_name LIKE ? AND brand IS NOT NULL AND brand != ""',
       [`%${product_name}%`]

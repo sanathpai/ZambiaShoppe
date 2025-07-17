@@ -166,8 +166,8 @@ exports.searchProducts = async (req, res) => {
     const [rows] = await db.query(
       `SELECT DISTINCT product_id, product_name, variety, brand, size 
        FROM Products 
-       WHERE product_name LIKE ? OR variety LIKE ? OR brand LIKE ?`,
-      [`%${query}%`, `%${query}%`, `%${query}%`]
+       WHERE (product_name LIKE ? OR variety LIKE ? OR brand LIKE ?) AND user_id = ?`,
+      [`%${query}%`, `%${query}%`, `%${query}%`, user_id]
     );
     
     if (rows.length === 0) {
