@@ -7,7 +7,7 @@ const convertUnits = require('../utils/unitConversion');
 // Add new inventory
 exports.addInventory = async (req, res) => {
   try {
-    const { product_name, variety, current_stock, unit_id, stock_limit } = req.body; // Include stock_limit
+    const { product_id, current_stock, unit_id, stock_limit } = req.body; // Accept product_id directly
     const user_id = req.user.id;
 
     // Fetch shop_name from Users table
@@ -16,11 +16,9 @@ exports.addInventory = async (req, res) => {
 
     const shop_name = user[0].shop_name;
 
-    // Fetch product details
-    const product = await Product.findByNameAndVarietyAndUser(product_name, variety, user_id);
-    if (!product) throw new Error(`Product with name "${product_name}" and variety "${variety}" not found for the user.`);
-
-    const product_id = product.product_id;
+    // Verify product exists and belongs to user
+    const product = await Product.findByIdAndUser(product_id, user_id);
+    if (!product) throw new Error(`Product with ID "${product_id}" not found for the user.`);
 
     // Check if the inventory already exists for the product and user
     const [existingInventory] = await db.query(
@@ -28,7 +26,7 @@ exports.addInventory = async (req, res) => {
       [product_id, user_id]
     );
     if (existingInventory.length > 0) {
-      return res.status(400).json({ error: `Inventory for the product "${product_name}" with variety "${variety}" already exists.` });
+      return res.status(400).json({ error: `Inventory for the product "${product.product_name}" with variety "${product.variety || ''}" already exists.` });
     }
 
     // Create the inventory with unit_id and stock_limit
