@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import axiosInstance from '../AxiosInstance';
 import { Container, TextField, Button, Box, Typography, Grid, Snackbar, Alert, Card, CardContent } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { useShopContext } from '../context/ShopContext';
 
 const AddShop = () => {
+  const { setShopCount } = useShopContext();
   const [shopName, setShopName] = useState('');
   const [location, setLocation] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,12 +22,18 @@ const AddShop = () => {
         location,
         phone_number: phoneNumber,
       });
+
+      // Fetch the updated shop count and update the context
+      const updatedResponse = await axiosInstance.get('/shops');
+      setShopCount(updatedResponse.data.length);
+
       setSnackbarMessage('Shop added successfully');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
       setShopName('');
       setLocation('');
       setPhoneNumber('');
+      navigate('/dashboard/shops/view'); // Navigate to view shops after adding
     } catch (error) {
       setSnackbarMessage('Error adding shop: ' + (error.response ? error.response.data.error : error.message));
       setSnackbarSeverity('error');

@@ -1,65 +1,138 @@
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '../AxiosInstance';
-import {
-  Container,
-  TextField,
-  Button,
-  Box,
-  Typography,
-  Grid,
-  MenuItem,
-  Card,
-  CardContent,
-  Snackbar,
-  Alert
+import { 
+  Container, 
+  TextField, 
+  Button, 
+  MenuItem, 
+  Select, 
+  FormControl, 
+  InputLabel, 
+  Snackbar, 
+  Card, 
+  CardContent, 
+  Typography, 
+  Box 
 } from '@mui/material';
+import MuiAlert from '@mui/material/Alert';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const AddInventory = () => {
-  const [shopName, setShopName] = useState('');
-  const [productName, setProductName] = useState('');
   const [currentStock, setCurrentStock] = useState('');
-  const [shops, setShops] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [stockLimit, setStockLimit] = useState(''); // New state for stock limit
+  const [units, setUnits] = useState([]); 
+  const [unitId, setUnitId] = useState(''); 
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+  const [productInfo, setProductInfo] = useState({ id: '', name: '', variety: '' });
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Auto-calculate threshold when current stock changes
+  useEffect(() => {
+    if (currentStock && !isNaN(currentStock) && parseFloat(currentStock) > 0) {
+      const calculatedThreshold = Math.min(parseFloat(currentStock) * 0.1, 1);
+      setStockLimit(calculatedThreshold.toString());
+    }
+  }, [currentStock]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const shopsResponse = await axiosInstance.get('/shops');
-        const productsResponse = await axiosInstance.get('/products');
-        setShops(shopsResponse.data);
-        setProducts(productsResponse.data);
-      } catch (error) {
-        console.error('Error fetching shops or products:', error);
-      }
-    };
+    // Get product information from URL parameters
+    const queryParams = new URLSearchParams(location.search);
+    const productId = queryParams.get('product_id');
+    const productName = queryParams.get('product_name');
+    const variety = queryParams.get('variety');
 
-    fetchData();
-  }, []);
+    if (productId && productName) {
+      setProductInfo({
+        id: productId,
+        name: decodeURIComponent(productName),
+        variety: variety ? decodeURIComponent(variety) : ''
+      });
 
-  const handleProductChange = async (e) => {
-    setProductName(e.target.value);
-  };
+      // Fetch units for this specific product
+      const fetchUnits = async () => {
+        try {
+          const unitsResponse = await axiosInstance.get(`/units/product/${productId}`);
+          const fetchedUnits = unitsResponse.data;
+          setUnits(fetchedUnits);
+        } catch (error) {
+          console.error('Error fetching units:', error);
+          setSnackbarMessage('Error fetching units for this product');
+          setSnackbarSeverity('error');
+          setSnackbarOpen(true);
+        }
+      };
+
+      fetchUnits();
+    } else {
+      // If no product info in URL, redirect back to add product
+      navigate('/dashboard/products/add');
+    }
+  }, [location, navigate]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    
+    if (!unitId || !currentStock || !stockLimit) {
+      setSnackbarMessage('Please fill in all required fields');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    // Validate numeric fields
+    if (isNaN(parseFloat(currentStock)) || parseFloat(currentStock) <= 0) {
+      setSnackbarMessage('Current stock must be a valid positive number');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    if (isNaN(parseFloat(stockLimit)) || parseFloat(stockLimit) < 0) {
+      setSnackbarMessage('Stock limit must be a valid number');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    if (isNaN(parseInt(unitId))) {
+      setSnackbarMessage('Please select a valid unit');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
     try {
-      await axiosInstance.post('/inventories', {
-        shop_name: shopName,
-        product_name: productName,
-        current_stock: currentStock
-      });
-      setSnackbarMessage('Inventory added successfully');
+      const inventoryData = {
+        product_id: productInfo.id, // Use product_id directly instead of name/variety lookup
+        current_stock: parseFloat(currentStock),
+        stock_limit: parseFloat(stockLimit),
+        unit_id: parseInt(unitId)
+      };
+      
+      console.log('Sending inventory data:', inventoryData);
+      
+      await axiosInstance.post('/inventories', inventoryData);
+      
+      setSnackbarMessage('Current stock entered successfully');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
-      setShopName('');
-      setProductName('');
-      setCurrentStock('');
+      
+      // After successful submission, navigate back to Add Product after a delay
+      setTimeout(() => {
+        navigate('/dashboard/products/add');
+      }, 2000);
+      
     } catch (error) {
       console.error('Error adding inventory:', error);
-      setSnackbarMessage('Error adding inventory');
+      
+      // Get specific error message from backend
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Error entering current stock';
+      
+      setSnackbarMessage(errorMessage);
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     }
@@ -69,77 +142,96 @@ const AddInventory = () => {
     setSnackbarOpen(false);
   };
 
+  const getProductDisplayName = () => {
+    if (productInfo.variety) {
+      return `${productInfo.name} - ${productInfo.variety}`;
+    }
+    return productInfo.name;
+  };
+
   return (
     <Container sx={{ marginTop: 4 }}>
       <Card>
         <CardContent>
           <Typography variant="h4" gutterBottom>
-            Add Inventory
+            Enter Current Stock of {getProductDisplayName()}
           </Typography>
           <form onSubmit={handleSubmit}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  select
-                  label="Shop Name"
-                  variant="outlined"
-                  fullWidth
-                  value={shopName}
-                  onChange={(e) => setShopName(e.target.value)}
-                  required
-                >
-                  {shops.map((shop) => (
-                    <MenuItem key={shop.shop_id} value={shop.shop_name}>
-                      {shop.shop_name}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Product info display - read only */}
+              <TextField
+                label="Product"
+                value={getProductDisplayName()}
+                fullWidth
+                disabled
+                variant="filled"
+              />
+
+              <FormControl fullWidth required>
+                <InputLabel>Unit</InputLabel>
+                <Select value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+                  {units.map((unit) => (
+                    <MenuItem key={unit.unit_id} value={unit.unit_id}>
+                      {unit.unit_type} ({unit.unit_category}) 
                     </MenuItem>
                   ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  select
-                  label="Product Name"
-                  variant="outlined"
-                  fullWidth
-                  value={productName}
-                  onChange={handleProductChange}
-                  required
-                >
-                  {products.map((product) => (
-                    <MenuItem key={product.product_id} value={product.product_name}>
-                      {product.product_name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Current Stock"
-                  type="number"
-                  variant="outlined"
-                  fullWidth
-                  value={currentStock}
-                  onChange={(e) => setCurrentStock(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Button type="submit" variant="contained" color="primary">
-                  Add Inventory
-                </Button>
-              </Grid>
-            </Grid>
+                </Select>
+              </FormControl>
+
+              <TextField
+                label="Current Stock"
+                type="number"
+                value={currentStock}
+                onChange={(e) => setCurrentStock(e.target.value)}
+                fullWidth
+                required
+              />
+
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  fontSize: '0.75rem',
+                  marginBottom: 1,
+                  marginTop: 2 
+                }}
+              >
+                You will be warned that the stock of {getProductDisplayName()} is low if it falls below:
+              </Typography>
+
+              <TextField
+                label="Low Stock Threshold *"
+                type="number"
+                value={stockLimit}
+                onChange={(e) => setStockLimit(e.target.value)}
+                fullWidth
+                required
+              />
+
+              <Button type="submit" variant="contained" color="primary">
+                DONE
+              </Button>
+              
+              <Button 
+                onClick={() => navigate('/dashboard/products/add')} 
+                variant="outlined" 
+                color="secondary"
+              >
+                Back to Add Product
+              </Button>
+            </Box>
           </form>
         </CardContent>
       </Card>
+
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: '100%' }}>
+        <MuiAlert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: '100%' }}>
           {snackbarMessage}
-        </Alert>
+        </MuiAlert>
       </Snackbar>
     </Container>
   );

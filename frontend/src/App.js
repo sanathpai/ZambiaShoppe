@@ -3,11 +3,14 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Register from './pages/Register';
 import Overview from './pages/Overview';
+import ViewInsights from './pages/ViewInsights';
 import AddProduct from './pages/AddProduct';
 import ViewProducts from './pages/ViewProducts';
-import EditProduct from './pages/EditProduct'; 
+import EditProduct from './pages/EditProduct';
 import EditProductOffering from './pages/EditProductOffering';
 import AddInventory from './pages/AddInventory';
 import EditInventory from './pages/EditInventory';
@@ -33,23 +36,43 @@ import ViewSuppliers from './pages/ViewSuppliers';
 import AddSale from './pages/AddSale';
 import EditSale from './pages/EditSale';
 import ViewSales from './pages/ViewSales';
+import ReconcileInventory from './pages/ReconcileInventory';
+import TestPage from './pages/testPage';
+import CustomerTransaction from './pages/CustomerTransaction'
 import PrivateRoute from './components/PrivateRoute';
+
+// Admin-specific pages
+import UserList from './pages/admin/UserList';
+import UserDetails from './pages/admin/UserDetails';
+import UserPurchases from './pages/admin/UserPurchases';
+import UserSales from './pages/admin/UserSales';
+
+import { ShopProvider } from './context/ShopContext';
 import theme from './theme';
 
 const App = () => {
+  const role = localStorage.getItem('role');
+  const isAdmin = role === 'admin';
+
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
+      <ShopProvider>
+        <CssBaseline />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/testpage" element={<TestPage />} />
           <Route path="/register" element={<Register />} />
           <Route element={<PrivateRoute />}>
-            <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route path="/dashboard" element={<DashboardLayout isAdmin={isAdmin} />}>
               <Route index element={<Overview />} />
+              <Route path="insights" element={<ViewInsights />} />
               <Route path="products/add" element={<AddProduct />} />
               <Route path="products/view" element={<ViewProducts />} />
               <Route path="products/edit/:id" element={<EditProduct />} />
               <Route path="inventories/add" element={<AddInventory />} />
+              <Route path="inventories/stock-entry" element={<AddInventory />} />
               <Route path="inventories/edit/:id" element={<EditInventory />} />
               <Route path="inventories/view" element={<ViewInventory />} />
               <Route path="shops/add" element={<AddShop />} />
@@ -59,7 +82,7 @@ const App = () => {
               <Route path="units/edit/:id" element={<EditUnit />} />
               <Route path="units/view" element={<ViewUnits />} />
               <Route path="productOfferings/add" element={<AddProductOffering />} />
-              <Route path="productOfferings/edit/:id" element ={<EditProductOffering />} />
+              <Route path="productOfferings/edit/:id" element={<EditProductOffering />} />
               <Route path="productOfferings/view" element={<ViewProductOfferings />} />
               <Route path="markets/add" element={<AddMarket />} />
               <Route path="markets/edit/:id" element={<EditMarket />} />
@@ -73,10 +96,23 @@ const App = () => {
               <Route path="sales/add" element={<AddSale />} />
               <Route path="sales/edit/:id" element={<EditSale />} />
               <Route path="sales/view" element={<ViewSales />} />
-          </Route>
+              <Route path="inventories/reconcile/:id" element={<ReconcileInventory />} />
+              <Route path="customertransaction" element={<CustomerTransaction />} />
+
+              {/* Admin-specific routes */}
+              {isAdmin && (
+                <>
+                  <Route path="admin/users" element={<UserList />} />
+                  <Route path="admin/users/:id/activity" element={<UserDetails />} />
+                  <Route path="admin/users/purchases" element={<UserPurchases/>} />
+                  <Route path="admin/users/sales" element={<UserSales/>} />
+                </>
+              )}
+            </Route>
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
+      </ShopProvider>
     </ThemeProvider>
   );
 };

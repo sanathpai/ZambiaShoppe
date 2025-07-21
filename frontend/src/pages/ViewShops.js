@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../AxiosInstance';
-import { Container, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper, Box, Button, IconButton, Snackbar, Alert } from '@mui/material';
+import { Container, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper, Box, IconButton, Snackbar, Alert } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useShopContext } from '../context/ShopContext';
 
 const ViewShops = () => {
+  const { setShopCount } = useShopContext();
   const [shops, setShops] = useState([]);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -17,31 +19,34 @@ const ViewShops = () => {
       try {
         const response = await axiosInstance.get('/shops');
         setShops(response.data);
+        setShopCount(response.data.length);
       } catch (error) {
         console.error('Error fetching shops:', error);
       }
     };
 
     fetchShops();
-  }, []);
+  }, [setShopCount]);
 
   const handleEdit = (shopId) => {
     navigate(`/dashboard/shops/edit/${shopId}`);
   };
 
-  const handleDelete = async (shopId) => {
-    try {
-      await axiosInstance.delete(`/shops/${shopId}`);
-      setShops(shops.filter((shop) => shop.shop_id !== shopId));
-      setSnackbarMessage('Shop deleted successfully');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-    } catch (error) {
-      setSnackbarMessage('Error deleting shop: ' + (error.response ? error.response.data.error : error.message));
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-    }
-  };
+  // const handleDelete = async (shopId) => {
+  //   try {
+  //     await axiosInstance.delete(`/shops/${shopId}`);
+  //     const updatedShops = shops.filter((shop) => shop.shop_id !== shopId);
+  //     setShops(updatedShops);
+  //     setShopCount(updatedShops.length);
+  //     setSnackbarMessage('Shop deleted successfully');
+  //     setSnackbarSeverity('success');
+  //     setSnackbarOpen(true);
+  //   } catch (error) {
+  //     setSnackbarMessage('Error deleting shop: ' + (error.response ? error.response.data.error : error.message));
+  //     setSnackbarSeverity('error');
+  //     setSnackbarOpen(true);
+  //   }
+  // };
 
   const handleSnackbarClose = (event, reason) => {
     if (reason === 'clickaway') {
@@ -76,9 +81,9 @@ const ViewShops = () => {
                     <IconButton color="primary" onClick={() => handleEdit(shop.shop_id)}>
                       <EditIcon />
                     </IconButton>
-                    <IconButton color="secondary" onClick={() => handleDelete(shop.shop_id)}>
+                    {/* <IconButton color="secondary" onClick={() => handleDelete(shop.shop_id)}>
                       <DeleteIcon />
-                    </IconButton>
+                    </IconButton> */}
                   </TableCell>
                 </TableRow>
               ))}
