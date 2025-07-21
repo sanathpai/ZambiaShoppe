@@ -128,6 +128,13 @@ const Product = {
     );
     return rows[0];
   },
+  findByNameAndVarietyAndBrandAndSizeAndUser: async (product_name, variety, brand, size, user_id) => {
+    const [rows] = await db.query(
+      'SELECT * FROM Products WHERE product_name = ? AND variety = ? AND brand = ? AND size = ? AND user_id = ?',
+      [product_name, variety, brand, size, user_id]
+    );
+    return rows[0];
+  },
   getBrandsByProductName: async (product_name) => {
     const [rows] = await db.query(
       'SELECT DISTINCT brand FROM Products WHERE product_name LIKE ? AND brand IS NOT NULL AND brand != ""',

@@ -31,19 +31,22 @@ exports.createProduct = async (req, res) => {
     await connection.beginTransaction();
     console.log('Transaction started.');
 
-    // Check if the product with the same name, variety, and brand already exists
-    // COMMENTED OUT: Allow duplicate products with same name, variety, and brand
-    /*
-    const existingProduct = brand 
-      ? await Product.findByNameAndVarietyAndBrandAndUser(product_name, variety, brand, user_id)
-      : await Product.findByNameAndVariety(product_name, variety, user_id);
+    // Check if the product with the same name, variety, brand, and size already exists
+    const existingProduct = await Product.findByNameAndVarietyAndBrandAndSizeAndUser(
+      product_name, 
+      variety || '', 
+      brand || '', 
+      size || '', 
+      user_id
+    );
     
     if (existingProduct) {
-      console.log(`Product with the same name, variety, and brand already exists for user: ${user_id}`);
+      console.log(`Product with the same name, variety, brand, and size already exists for user: ${user_id}`);
       await connection.rollback(); // Rollback the transaction
-      return res.status(400).json({ error: 'A product with the same name, variety, and brand already exists for this user.' });
+      return res.status(400).json({ 
+        error: 'A product with the same name, variety, brand, and size already exists for this user.' 
+      });
     }
-    */
 
     const productData = { product_name, variety, brand, size, user_id, image };
     console.log(`Creating product:`, {
