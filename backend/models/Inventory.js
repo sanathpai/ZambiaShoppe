@@ -17,6 +17,8 @@ const Inventory = {
         Inventories.*, 
         Products.product_name, 
         Products.variety, 
+        Products.brand,
+        Products.size,
         Units.unit_type -- Fetch the unit type from Units table
       FROM Inventories
       JOIN Products ON Inventories.product_id = Products.product_id
@@ -37,6 +39,8 @@ const Inventory = {
         Products.product_id, 
         Products.product_name,
         Products.variety, 
+        Products.brand,
+        Products.size,
         Inventories.unit_id, 
         Units.unit_type -- Fetch unit type instead of just unit_id
       FROM Inventories
@@ -68,6 +72,8 @@ const Inventory = {
         Products.product_id, 
         Products.product_name,
         Products.variety, 
+        Products.brand,
+        Products.size,
         Inventories.unit_id, 
         Units.unit_type -- Fetch unit type instead of just unit_id
       FROM Inventories
