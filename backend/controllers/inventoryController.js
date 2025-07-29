@@ -227,6 +227,11 @@ exports.reconcileInventory = async (req, res) => {
     const inventoryId = req.params.id;
     const { actual_stock, actual_unit_id } = req.body;
 
+    // Validate that actual_stock is not negative
+    if (parseFloat(actual_stock) < 0) {
+      return res.status(400).json({ error: 'Actual stock cannot be negative. Please enter a valid positive stock value.' });
+    }
+
     const inventory = await Inventory.findById(inventoryId);
     if (!inventory) {
       return res.status(404).json({ error: `Inventory with ID ${inventoryId} not found.` });
@@ -234,6 +239,12 @@ exports.reconcileInventory = async (req, res) => {
 
     // Convert the actual stock to match the inventory's unit
     const convertedStock = await convertUnits(actual_stock, actual_unit_id, inventory.unit_id);
+    
+    // Double-check after conversion that the result is not negative
+    if (convertedStock < 0) {
+      return res.status(400).json({ error: 'Converted stock value cannot be negative. Please check your units and stock value.' });
+    }
+    
     await Inventory.update(inventoryId, {
       ...inventory,
       current_stock: convertedStock
