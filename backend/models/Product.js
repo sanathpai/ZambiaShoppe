@@ -139,8 +139,8 @@ const Product = {
   },
   findByNameAndVarietyAndBrandAndSizeAndUser: async (product_name, variety, brand, size, user_id) => {
     const [rows] = await db.query(
-      'SELECT * FROM Products WHERE product_name = ? AND variety = ? AND brand = ? AND size = ? AND user_id = ?',
-      [product_name, variety, brand, size, user_id]
+      'SELECT * FROM Products WHERE TRIM(product_name) = ? AND TRIM(COALESCE(variety, "")) = ? AND TRIM(COALESCE(brand, "")) = ? AND TRIM(COALESCE(size, "")) = ? AND user_id = ?',
+      [product_name?.trim(), variety?.trim() || '', brand?.trim() || '', size?.trim() || '', user_id]
     );
     return rows[0];
   },
