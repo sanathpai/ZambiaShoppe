@@ -318,12 +318,12 @@ const AddSale = () => {
         product_name: productName,
         variety: variety || '', // Ensure variety is never undefined
         brand: brand || '', // Include brand information
-        retail_price: retailPrice,
-        quantity: quantity,
+        retail_price: Number(parseFloat(retailPrice || 0).toFixed(2)),
+        quantity: Number(parseFloat(quantity || 0).toFixed(2)),
         sale_date: saleDate,
         unit_id: selectedUnitId,  // Use the unit_id
         unit_category: selectedUnit.unit_category, // Include the unit_category
-        discount: discount, // Add discount to the sale data
+        discount: Number(parseFloat(discount || 0).toFixed(2)), // Clean and format discount
         trans_id: `TXN-${Date.now()}-${Math.random().toString(36).substring(2, 8)}` // Generate unique transaction ID for single sales
       });
       setSnackbarMessage('Sale added successfully!');

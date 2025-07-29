@@ -115,16 +115,25 @@ const Product = {
     return result.affectedRows > 0;
   },
   findByNameAndVarietyAndUser: async (product_name, variety, user_id) => {
+    // Trim inputs to handle trailing spaces
+    const trimmedName = product_name ? product_name.trim() : product_name;
+    const trimmedVariety = variety ? variety.trim() : variety;
+    
     const [rows] = await db.query(
-      'SELECT * FROM Products WHERE product_name = ? AND variety = ? AND user_id = ?',
-      [product_name, variety, user_id]
+      'SELECT * FROM Products WHERE TRIM(product_name) = ? AND TRIM(COALESCE(variety, "")) = ? AND user_id = ?',
+      [trimmedName, trimmedVariety || '', user_id]
     );
     return rows[0];
   },
   findByNameAndVarietyAndBrandAndUser: async (product_name, variety, brand, user_id) => {
+    // Trim inputs to handle trailing spaces
+    const trimmedName = product_name ? product_name.trim() : product_name;
+    const trimmedVariety = variety ? variety.trim() : variety;
+    const trimmedBrand = brand ? brand.trim() : brand;
+    
     const [rows] = await db.query(
-      'SELECT * FROM Products WHERE product_name = ? AND variety = ? AND brand = ? AND user_id = ?',
-      [product_name, variety, brand, user_id]
+      'SELECT * FROM Products WHERE TRIM(product_name) = ? AND TRIM(COALESCE(variety, "")) = ? AND TRIM(COALESCE(brand, "")) = ? AND user_id = ?',
+      [trimmedName, trimmedVariety || '', trimmedBrand || '', user_id]
     );
     return rows[0];
   },

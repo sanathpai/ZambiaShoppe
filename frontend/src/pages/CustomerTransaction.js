@@ -662,13 +662,13 @@ const CustomerTransaction = () => {
           product_name: item.productDetails.product_name,
           variety: item.productDetails.variety,
           brand: item.productDetails.brand,
-          retail_price: item.price,
-          quantity: item.quantity,
+          retail_price: Number(parseFloat(item.price || 0).toFixed(2)),
+          quantity: Number(parseFloat(item.quantity || 0).toFixed(2)),
           sale_date: item.date,
           unit_id: item.unitId,
           unit_category: item.unitTypes.find((u) => u.id === item.unitId)?.category,
           trans_id: currentTransactionId, // Add the transaction ID to group all sales
-          discount: itemDiscount.toFixed(2) // Add proportional discount for this item
+          discount: Number(itemDiscount.toFixed(2)) // Add proportional discount for this item
         };
         
         console.log('📤 Sending sale data to backend:', saleData);
