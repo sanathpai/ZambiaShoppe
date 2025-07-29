@@ -28,14 +28,8 @@ exports.addSale = async (req, res) => {
     if (!product_name || product_name.trim() === '') {
       throw new Error('Product name is required');
     }
-    if (!quantity || isNaN(quantity) || Number(parseFloat(quantity).toFixed(2)) <= 0) {
+    if (!quantity || isNaN(quantity) || parseFloat(quantity) <= 0) {
       throw new Error('Valid quantity is required');
-    }
-    if (!retail_price || isNaN(retail_price) || Number(parseFloat(retail_price).toFixed(2)) <= 0) {
-      throw new Error('Valid retail price is required');
-    }
-    if (discount && isNaN(discount)) {
-      throw new Error('Discount must be a valid number');
     }
     if (!unit_id) {
       throw new Error('Unit ID is required');
@@ -129,22 +123,14 @@ exports.addSale = async (req, res) => {
     console.log('📦 Checking stock availability...');
     console.log(`- Current stock: ${inventory.current_stock}`);
     console.log(`- Required (converted): ${convertedQuantity}`);
-    
-    // Fix floating point precision issues by using proper decimal comparison
-    const currentStock = Number(parseFloat(inventory.current_stock).toFixed(2));
-    const requiredStock = Number(parseFloat(convertedQuantity).toFixed(2));
-    
-    console.log(`- Current stock (fixed): ${currentStock}`);
-    console.log(`- Required stock (fixed): ${requiredStock}`);
-    
-    if (currentStock < requiredStock) {
-      throw new Error(`Insufficient stock available. Current stock: ${currentStock}, Required: ${requiredStock}`);
+    if (parseFloat(inventory.current_stock) < parseFloat(convertedQuantity)) {
+      throw new Error(`Insufficient stock available. Current stock: ${inventory.current_stock}, Required: ${convertedQuantity}`);
     }
     console.log('✅ Sufficient stock available');
 
     // Update the inventory stock
     console.log('📝 Updating inventory stock...');
-    const newStock = Number((currentStock - requiredStock).toFixed(2));
+    const newStock = parseFloat(inventory.current_stock) - parseFloat(convertedQuantity);
     await Inventory.update(inventory.inventory_id, { ...inventory, current_stock: newStock });
     console.log('✅ Inventory updated, new stock:', newStock);
 
