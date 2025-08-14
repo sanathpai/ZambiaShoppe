@@ -5,7 +5,8 @@ const auth = require('../src/middleware/auth');
 
 router.post('/', auth, productController.createProduct);
 router.get('/', auth, productController.getAllProducts);
-router.get('/search', auth, productController.searchProducts); // New search route
+router.get('/search/global', auth, productController.searchProductsGlobal); // Global search route for Add Product page
+router.get('/search', auth, productController.searchProducts); // User-specific search route
 router.get('/usage', auth, productController.getProductUsage); // Move this before parameterized routes
 router.get('/brands/:productName', auth, productController.getBrandsByProductName); // Get brands for a product
 router.post('/copy/:id', auth, productController.copyProduct);

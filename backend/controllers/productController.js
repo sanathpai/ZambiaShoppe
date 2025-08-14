@@ -184,6 +184,28 @@ exports.searchProducts = async (req, res) => {
   }
 };
 
+// Search products globally (across all users) - used for Add Product page
+exports.searchProductsGlobal = async (req, res) => {
+  try {
+    const query = req.query.q; // Get the search query from the request
+    const [rows] = await db.query(
+      `SELECT DISTINCT product_id, product_name, variety, brand, size 
+       FROM Products 
+       WHERE (product_name LIKE ? OR variety LIKE ? OR brand LIKE ?)`,
+      [`%${query}%`, `%${query}%`, `%${query}%`]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No products found matching the search query.' });
+    }
+
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('Error during global product search:', error);
+    res.status(500).json({ error: `An error occurred while searching for products: ${error.message}` });
+  }
+};
+
 // Get all products for the authenticated user
 exports.getAllProducts = async (req, res) => {
   try {
