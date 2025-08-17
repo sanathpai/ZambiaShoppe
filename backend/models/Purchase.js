@@ -19,6 +19,7 @@ const Purchase = {
         Purchases.*, 
         Products.product_name,
         Products.variety,
+        Products.brand,
         Units.unit_type  -- Now including the unit type
       FROM Purchases
       JOIN Products ON Purchases.product_id = Products.product_id
@@ -37,6 +38,7 @@ const Purchase = {
       SELECT 
         Purchases.*, 
         Products.product_name,
+        Products.brand,
         Units.unit_type  -- Including the unit type
       FROM Purchases
       JOIN Products ON Purchases.product_id = Products.product_id
@@ -58,6 +60,7 @@ const Purchase = {
       SELECT 
         Purchases.*, 
         Products.product_name,
+        Products.brand,
         Units.unit_type  -- Now including the unit type
       FROM Purchases
       JOIN Products ON Purchases.product_id = Products.product_id

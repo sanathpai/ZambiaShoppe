@@ -26,6 +26,7 @@ const Unit = {
       u.product_id,
       p.product_name,  -- Product name
       p.variety,       -- Product variety
+      p.brand,         -- Product brand
       u.unit_type, 
       u.unit_category, 
       u.prepackaged,

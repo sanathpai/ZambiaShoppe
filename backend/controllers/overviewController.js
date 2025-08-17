@@ -256,6 +256,7 @@ exports.getProductsBelowThreshold = async (req, res) => {
         productId: inventory.product_id,
         productName: inventory.product_name,
         variety: inventory.variety,
+        brand: inventory.brand,
       }));
 
     res.status(200).json({

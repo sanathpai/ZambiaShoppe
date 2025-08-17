@@ -16,6 +16,7 @@ const Sale = {
         Sales.*, 
         Products.product_name, 
         Products.variety,
+        Products.brand,
         Units.unit_type  -- Including the unit type from Units table
       FROM Sales
       JOIN Products ON Sales.product_id = Products.product_id
@@ -33,6 +34,7 @@ const Sale = {
         Sales.*, 
         Products.product_name, 
         Products.variety,
+        Products.brand,
         Units.unit_type  -- Including the unit type from Units table
       FROM Sales
       JOIN Products ON Sales.product_id = Products.product_id
@@ -50,6 +52,7 @@ const Sale = {
         Sales.*, 
         Products.product_name, 
         Products.variety,
+        Products.brand,
         Units.unit_type  -- Including the unit type from Units table
       FROM Sales
       JOIN Products ON Sales.product_id = Products.product_id
@@ -81,6 +84,7 @@ const Sale = {
         Sales.*, 
         Products.product_name, 
         Products.variety,
+        Products.brand,
         Units.unit_type
       FROM Sales
       JOIN Products ON Sales.product_id = Products.product_id
