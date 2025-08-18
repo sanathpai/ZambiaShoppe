@@ -27,6 +27,7 @@ const productOfferingRoutes= require('../routes/productOfferingRoutes');
 const marketRoutes= require('../routes/marketRoutes');
 const supplierRoutes= require('../routes/supplierRoutes');
 const overviewRoutes=require('../routes/overviewRoutes');
+const clipRoutes=require('../routes/clipRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
@@ -40,6 +41,7 @@ app.use('/api/markets', marketRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('api/products/usage', productRoutes);
 app.use('/api/overview',overviewRoutes);
+app.use('/api/clip', clipRoutes);
 // Test log to ensure routes are being set up
 console.log('Routes are set up');
 

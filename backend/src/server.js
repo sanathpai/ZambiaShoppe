@@ -38,6 +38,7 @@ const supplierRoutes = require('../routes/supplierRoutes');
 const overviewRoutes = require('../routes/overviewRoutes');
 const adminRoutes=require('../routes/AdminRoutes');
 const insightsRoutes = require('../routes/insightsRoutes');
+const clipRoutes = require('../routes/clipRoutes');
 
 const app = express();
 
@@ -95,6 +96,7 @@ app.use('/api/products/usage', productRoutes);
 app.use('/api/overview', overviewRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/insights', insightsRoutes);
+app.use('/api/clip', clipRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
