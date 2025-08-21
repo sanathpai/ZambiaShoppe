@@ -106,7 +106,7 @@ exports.addUnit = async (req, res) => {
         console.log('Order price type:', typeof order_price, 'parsed:', parseFloat(order_price));
         
         try {
-          const buyingPriceId = await CurrentPrice.upsert({
+          const buyingPriceId = await CurrentPrice.upsertUnsafe({
             product_id,
             unit_id: buyingUnitId,
             user_id,
@@ -129,7 +129,7 @@ exports.addUnit = async (req, res) => {
         console.log('Retail price type:', typeof retail_price, 'parsed:', parseFloat(retail_price));
         
         try {
-          const sellingPriceId = await CurrentPrice.upsert({
+          const sellingPriceId = await CurrentPrice.upsertUnsafe({
             product_id,
             unit_id: sellingUnitId,
             user_id,
@@ -184,7 +184,7 @@ exports.addUnit = async (req, res) => {
         console.log('Order price type:', typeof order_price, 'parsed:', parseFloat(order_price));
         
         try {
-          const newBuyingPriceId = await CurrentPrice.upsert({
+          const newBuyingPriceId = await CurrentPrice.upsertUnsafe({
             product_id,
             unit_id: newUnitId,
             user_id,
@@ -201,7 +201,7 @@ exports.addUnit = async (req, res) => {
         console.log('Retail price type:', typeof retail_price, 'parsed:', parseFloat(retail_price));
         
         try {
-          const newSellingPriceId = await CurrentPrice.upsert({
+          const newSellingPriceId = await CurrentPrice.upsertUnsafe({
             product_id,
             unit_id: newUnitId,
             user_id,
