@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { safeUpsertCurrentPrice, validateCurrentPriceData } = require('../utils/priceValidation');
 
 const CurrentPrice = {
   // Get current price for a product-unit combination
@@ -44,8 +45,19 @@ const CurrentPrice = {
     return rows;
   },
 
-  // Create or update current price
+  // Create or update current price (with validation)
   upsert: async (currentPriceData, connection = null) => {
+    const result = await safeUpsertCurrentPrice(currentPriceData, connection);
+    
+    if (!result.success) {
+      throw new Error(`CurrentPrice validation failed: ${result.error}`);
+    }
+    
+    return result.currentPriceId;
+  },
+  
+  // Legacy upsert method without validation (for internal use only)
+  upsertUnsafe: async (currentPriceData, connection = null) => {
     const { product_id, unit_id, user_id, retail_price, order_price } = currentPriceData;
     const dbConnection = connection || db; // Use provided connection or default db
     
@@ -70,8 +82,20 @@ const CurrentPrice = {
     }
   },
 
-  // Update only retail price
+  // Update only retail price (with validation)
   updateRetailPrice: async (product_id, unit_id, user_id, retail_price) => {
+    // Validate the unit-product relationship first
+    const validation = await validateCurrentPriceData({ product_id, unit_id, user_id });
+    
+    if (!validation.valid) {
+      if (validation.correctedProductId) {
+        console.warn(`⚠️ Auto-correcting product_id from ${product_id} to ${validation.correctedProductId} for unit_id ${unit_id}`);
+        product_id = validation.correctedProductId;
+      } else {
+        throw new Error(`Validation failed: ${validation.error}`);
+      }
+    }
+    
     const [result] = await db.query(`
       UPDATE CurrentPrice 
       SET retail_price = ?, last_updated = CURRENT_TIMESTAMP
@@ -89,8 +113,20 @@ const CurrentPrice = {
     return true;
   },
 
-  // Update only order price
+  // Update only order price (with validation)
   updateOrderPrice: async (product_id, unit_id, user_id, order_price) => {
+    // Validate the unit-product relationship first
+    const validation = await validateCurrentPriceData({ product_id, unit_id, user_id });
+    
+    if (!validation.valid) {
+      if (validation.correctedProductId) {
+        console.warn(`⚠️ Auto-correcting product_id from ${product_id} to ${validation.correctedProductId} for unit_id ${unit_id}`);
+        product_id = validation.correctedProductId;
+      } else {
+        throw new Error(`Validation failed: ${validation.error}`);
+      }
+    }
+    
     const [result] = await db.query(`
       UPDATE CurrentPrice 
       SET order_price = ?, last_updated = CURRENT_TIMESTAMP
