@@ -491,6 +491,7 @@ const AddUnit = () => {
           selectedExistingUnit,
           conversion_rate: conversionRate,
           unitCategory, // This is required for subsequent additions
+          prepackaged: false, // Add missing prepackaged field
           retail_price: retailPrice || '', // Always send these fields
           order_price: orderPrice || ''     // Always send these fields
         };
@@ -501,6 +502,8 @@ const AddUnit = () => {
           buying_unit_type,
           selling_unit_type,
           conversion_rate: conversionRate,
+          prepackaged_b: false, // Add missing prepackaged field for buying unit
+          prepackaged: false,   // Add missing prepackaged field for selling unit
           retail_price: retailPrice || '', // Always send retail_price for selling unit
           order_price: orderPrice || ''    // Always send order_price for buying unit
           // Note: Don't send unitCategory for first-time creation
