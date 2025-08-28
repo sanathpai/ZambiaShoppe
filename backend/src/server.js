@@ -39,6 +39,8 @@ const overviewRoutes = require('../routes/overviewRoutes');
 const adminRoutes=require('../routes/AdminRoutes');
 const insightsRoutes = require('../routes/insightsRoutes');
 const clipRoutes = require('../routes/clipRoutes');
+const enhancedClipRoutes = require('../routes/enhancedClipUniversal');
+const optimizedClipRoutes = require('../routes/optimizedClipRoutes');
 
 const app = express();
 
@@ -97,6 +99,8 @@ app.use('/api/overview', overviewRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/insights', insightsRoutes);
 app.use('/api/clip', clipRoutes);
+app.use('/api/enhanced-clip', enhancedClipRoutes);
+app.use('/api/optimized-clip', optimizedClipRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).send('OK');

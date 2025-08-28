@@ -28,6 +28,8 @@ const marketRoutes= require('../routes/marketRoutes');
 const supplierRoutes= require('../routes/supplierRoutes');
 const overviewRoutes=require('../routes/overviewRoutes');
 const clipRoutes=require('../routes/clipRoutes');
+const enhancedClipRoutes=require('../test_enhanced_route');
+const optimizedClipRoutes=require('../routes/optimizedClipRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
@@ -42,7 +44,11 @@ app.use('/api/suppliers', supplierRoutes);
 app.use('api/products/usage', productRoutes);
 app.use('/api/overview',overviewRoutes);
 app.use('/api/clip', clipRoutes);
+app.use('/api/enhanced-clip', enhancedClipRoutes);
+app.use('/api/optimized-clip', optimizedClipRoutes);
 // Test log to ensure routes are being set up
 console.log('Routes are set up');
+console.log('Enhanced CLIP routes loaded:', typeof enhancedClipRoutes);
+console.log('⚡ Optimized CLIP routes loaded for improved performance');
 
 module.exports = app;

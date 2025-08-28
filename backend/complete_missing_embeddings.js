@@ -45,8 +45,8 @@ async function completeMissingEmbeddings() {
       return;
     }
 
-    // Process missing products in batches
-    const batchSize = 50;
+    // Process missing products in smaller batches to avoid EPIPE errors
+    const batchSize = 5; // Reduced from 50 to prevent memory/timeout issues
     let successCount = 0;
     let errorCount = 0;
 
@@ -65,30 +65,50 @@ async function completeMissingEmbeddings() {
       }));
 
       try {
+        console.log(`   🔧 Starting batch processing...`);
         const embeddings = await processWithCLIP(batchData);
+        
+        if (!embeddings || embeddings.length === 0) {
+          console.log(`   ⚠️ No embeddings returned for this batch`);
+          errorCount += batch.length;
+          continue;
+        }
         
         // Save embeddings to database
         for (const embedding of embeddings) {
           if (embedding.embedding && embedding.embedding.length > 0) {
-            await db.query(`
-              INSERT INTO product_embeddings (product_id, embedding, embedding_model, created_at)
-              VALUES (?, ?, 'clip-vit-base-patch32', NOW())
-              ON DUPLICATE KEY UPDATE 
-                embedding = VALUES(embedding),
-                created_at = NOW()
-            `, [embedding.product_id, JSON.stringify(embedding.embedding)]);
-            successCount++;
+            try {
+              await db.query(`
+                INSERT INTO product_embeddings (product_id, embedding, embedding_model, created_at)
+                VALUES (?, ?, 'clip-vit-base-patch32', NOW())
+                ON DUPLICATE KEY UPDATE 
+                  embedding = VALUES(embedding),
+                  created_at = NOW()
+              `, [embedding.product_id, JSON.stringify(embedding.embedding)]);
+              successCount++;
+              console.log(`   ✅ Saved embedding for product ${embedding.product_id} (${embedding.embedding.length} dimensions)`);
+            } catch (dbError) {
+              console.log(`   ❌ Database error for product ${embedding.product_id}: ${dbError.message}`);
+              errorCount++;
+            }
           } else {
-            console.log(`❌ Failed to generate embedding for product ${embedding.product_id}`);
+            console.log(`   ❌ Failed to generate embedding for product ${embedding.product_id}: ${embedding.error || 'Unknown error'}`);
             errorCount++;
           }
         }
 
-        console.log(`   ✅ Processed ${embeddings.length} products in this batch`);
+        console.log(`   ✅ Batch complete: ${embeddings.filter(e => e.embedding && e.embedding.length > 0).length}/${embeddings.length} successful`);
+        
+        // Add a small delay between batches to prevent overwhelming the system
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
       } catch (error) {
-        console.error(`❌ Error processing batch:`, error.message);
+        console.error(`❌ Error processing batch ${Math.floor(i/batchSize) + 1}:`, error.message);
+        console.log(`   🔄 Continuing with next batch...`);
         errorCount += batch.length;
+        
+        // Add extra delay after errors
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
 
       // Progress update
@@ -126,25 +146,37 @@ import json
 import sys
 import numpy as np
 import traceback
+import io
+from io import BytesIO
 
 def process_products():
     try:
-        # Load CLIP model
+        # Load CLIP model with explicit device handling
         model_name = "openai/clip-vit-base-patch32"
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Loading CLIP model on {device}...", file=sys.stderr)
+        
         model = CLIPModel.from_pretrained(model_name)
         processor = CLIPProcessor.from_pretrained(model_name)
+        model = model.to(device)
+        
+        print(f"Model loaded successfully", file=sys.stderr)
         
         # Read products from stdin
         input_data = sys.stdin.read()
         products = json.loads(input_data)
         
+        print(f"Processing {len(products)} products...", file=sys.stderr)
+        
         results = []
         
-        for product in products:
+        for i, product in enumerate(products):
             try:
+                print(f"Processing product {i+1}/{len(products)}: {product['product_id']}", file=sys.stderr)
+                
                 # Get image
                 image_url = product['image_data']
-                if not image_url:
+                if not image_url or image_url.strip() == '':
                     results.append({
                         'product_id': product['product_id'],
                         'embedding': [],
@@ -152,26 +184,55 @@ def process_products():
                     })
                     continue
                 
-                # Load and process image
-                if image_url.startswith('http'):
-                    response = requests.get(image_url, timeout=10)
-                    image = Image.open(response.content).convert('RGB')
-                else:
-                    image = Image.open(image_url).convert('RGB')
+                # Load and process image with better error handling
+                try:
+                    if image_url.startswith('http'):
+                        response = requests.get(image_url, timeout=15, stream=True)
+                        response.raise_for_status()
+                        image = Image.open(BytesIO(response.content)).convert('RGB')
+                    else:
+                        # Handle local file paths
+                        image = Image.open(image_url).convert('RGB')
+                    
+                    # Resize if too large to prevent memory issues
+                    if image.size[0] > 512 or image.size[1] > 512:
+                        image.thumbnail((512, 512), Image.Resampling.LANCZOS)
+                    
+                except Exception as img_error:
+                    print(f"Image loading failed for {product['product_id']}: {img_error}", file=sys.stderr)
+                    results.append({
+                        'product_id': product['product_id'],
+                        'embedding': [],
+                        'error': f'Image loading failed: {str(img_error)}'
+                    })
+                    continue
                 
-                # Generate embedding
-                inputs = processor(images=image, return_tensors="pt")
-                with torch.no_grad():
-                    image_features = model.get_image_features(**inputs)
-                    embedding = image_features.squeeze().numpy().tolist()
-                
-                results.append({
-                    'product_id': product['product_id'],
-                    'embedding': embedding,
-                    'error': None
-                })
+                # Generate embedding with device handling
+                try:
+                    inputs = processor(images=image, return_tensors="pt").to(device)
+                    with torch.no_grad():
+                        image_features = model.get_image_features(**inputs)
+                        # Normalize for cosine similarity
+                        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                        embedding = image_features.squeeze().cpu().numpy().tolist()
+                    
+                    results.append({
+                        'product_id': product['product_id'],
+                        'embedding': embedding,
+                        'error': None
+                    })
+                    print(f"Successfully processed product {product['product_id']}", file=sys.stderr)
+                    
+                except Exception as clip_error:
+                    print(f"CLIP processing failed for {product['product_id']}: {clip_error}", file=sys.stderr)
+                    results.append({
+                        'product_id': product['product_id'],
+                        'embedding': [],
+                        'error': f'CLIP processing failed: {str(clip_error)}'
+                    })
                 
             except Exception as e:
+                print(f"General error for product {product['product_id']}: {e}", file=sys.stderr)
                 results.append({
                     'product_id': product['product_id'],
                     'embedding': [],
@@ -181,14 +242,18 @@ def process_products():
         print(json.dumps(results))
         
     except Exception as e:
+        print(f"Critical error: {e}", file=sys.stderr)
         print(json.dumps([{'error': f'Model loading failed: {str(e)}'}]))
 
 if __name__ == "__main__":
     process_products()
 `;
 
-    const pythonProcess = spawn('python3', ['-c', pythonScript], {
-      stdio: ['pipe', 'pipe', 'pipe']
+    // Use the virtual environment Python if available
+    const pythonCmd = path.join(__dirname, 'clip_env', 'bin', 'python');
+    const pythonProcess = spawn(pythonCmd, ['-c', pythonScript], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 300000 // 5 minute timeout
     });
 
     let output = '';
@@ -200,25 +265,46 @@ if __name__ == "__main__":
 
     pythonProcess.stderr.on('data', (data) => {
       errorOutput += data.toString();
+      console.log('Python:', data.toString().trim()); // Show progress
     });
 
-    pythonProcess.on('close', (code) => {
+    pythonProcess.on('error', (error) => {
+      reject(new Error(`Python process error: ${error.message}`));
+    });
+
+    pythonProcess.on('close', (code, signal) => {
+      if (signal) {
+        reject(new Error(`Python process killed by signal: ${signal}`));
+        return;
+      }
+      
       if (code !== 0) {
-        reject(new Error(`Python process failed: ${errorOutput}`));
+        reject(new Error(`Python process failed with code ${code}: ${errorOutput}`));
         return;
       }
 
       try {
-        const results = JSON.parse(output);
-        resolve(results);
+        const lines = output.trim().split('\n');
+        const lastLine = lines[lines.length - 1];
+        
+        if (lastLine.startsWith('[') && lastLine.endsWith(']')) {
+          const results = JSON.parse(lastLine);
+          resolve(results);
+        } else {
+          reject(new Error(`Invalid Python output format: ${lastLine}`));
+        }
       } catch (error) {
-        reject(new Error(`Failed to parse Python output: ${error.message}`));
+        reject(new Error(`Failed to parse Python output: ${error.message}\nOutput: ${output}`));
       }
     });
 
-    // Send data to Python
-    pythonProcess.stdin.write(JSON.stringify(products));
-    pythonProcess.stdin.end();
+    // Send data to Python with error handling
+    try {
+      pythonProcess.stdin.write(JSON.stringify(products));
+      pythonProcess.stdin.end();
+    } catch (error) {
+      reject(new Error(`Failed to send data to Python: ${error.message}`));
+    }
   });
 }
 

@@ -1,0 +1,396 @@
+const express = require('express');
+const router = express.Router();
+const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const db = require('../config/db');
+
+// Enhanced CLIP search endpoint with smart cropping
+router.post('/enhanced-search', async (req, res) => {
+  console.log('🎯 Enhanced CLIP search request received (with smart cropping)');
+  
+  try {
+    const { image, strategies = ['center_crop', 'object_detection', 'multi_region'] } = req.body;
+    
+    if (!image) {
+      return res.status(400).json({ error: 'Image data is required' });
+    }
+    
+    // Validate image format
+    if (!image.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Invalid image format' });
+    }
+    
+    // Generate temporary file for the image
+    const tempId = crypto.randomBytes(16).toString('hex');
+    const tempImagePath = path.join(__dirname, '..', 'temp', `enhanced_clip_query_${tempId}.jpg`);
+    
+    // Ensure temp directory exists
+    const tempDir = path.dirname(tempImagePath);
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    // Save image to temporary file
+    const base64Data = image.replace(/^data:image\/[a-z]+;base64,/, '');
+    fs.writeFileSync(tempImagePath, base64Data, 'base64');
+    
+    console.log('📸 Temporary image saved:', tempImagePath);
+    console.log('🔧 Using cropping strategies:', strategies);
+    
+    // Get enhanced CLIP embedding with cropping
+    const queryEmbedding = await getEnhancedQueryEmbedding(tempImagePath, strategies);
+    console.log('✅ Enhanced query embedding computed');
+    
+    // Search similar products in database
+    const similarProducts = await searchSimilarProducts(queryEmbedding, 5);
+    console.log(`🎯 Found ${similarProducts.length} similar products`);
+    
+    // Clean up temporary file
+    try {
+      fs.unlinkSync(tempImagePath);
+    } catch (cleanupError) {
+      console.warn('⚠️ Failed to cleanup temp file:', cleanupError);
+    }
+    
+    // Return results with metadata about cropping strategies used
+    res.json({
+      success: true,
+      results: similarProducts,
+      count: similarProducts.length,
+      cropping_strategies: strategies,
+      enhanced: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Enhanced CLIP search error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Enhanced CLIP search failed',
+      details: error.message 
+    });
+  }
+});
+
+// Analyze cropping effectiveness endpoint
+router.post('/analyze-cropping', async (req, res) => {
+  console.log('📊 Cropping analysis request received');
+  
+  try {
+    const { image } = req.body;
+    
+    if (!image) {
+      return res.status(400).json({ error: 'Image data is required' });
+    }
+    
+    if (!image.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Invalid image format' });
+    }
+    
+    // Generate temporary file
+    const tempId = crypto.randomBytes(16).toString('hex');
+    const tempImagePath = path.join(__dirname, '..', 'temp', `crop_analysis_${tempId}.jpg`);
+    
+    const tempDir = path.dirname(tempImagePath);
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    const base64Data = image.replace(/^data:image\/[a-z]+;base64,/, '');
+    fs.writeFileSync(tempImagePath, base64Data, 'base64');
+    
+    console.log('📸 Analyzing cropping effectiveness for:', tempImagePath);
+    
+    // Analyze cropping effectiveness
+    const analysis = await analyzeCroppingEffectiveness(tempImagePath);
+    
+    // Clean up
+    try {
+      fs.unlinkSync(tempImagePath);
+    } catch (cleanupError) {
+      console.warn('⚠️ Failed to cleanup temp file:', cleanupError);
+    }
+    
+    res.json({
+      success: true,
+      analysis: analysis,
+      recommendations: getRecommendations(analysis)
+    });
+    
+  } catch (error) {
+    console.error('❌ Cropping analysis error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Cropping analysis failed',
+      details: error.message 
+    });
+  }
+});
+
+function getEnhancedQueryEmbedding(imagePath, strategies) {
+  return new Promise((resolve, reject) => {
+    const strategiesJson = JSON.stringify(strategies);
+    const pythonScript = `
+import sys
+import os
+sys.path.append('${path.join(__dirname, '..', 'utils')}')
+
+from enhancedClipWithCropping import EnhancedCLIPWithCropping
+import json
+
+try:
+    enhancer = EnhancedCLIPWithCropping()
+    
+    # Parse strategies from command line
+    strategies = ${strategiesJson}
+    
+    # Get enhanced embedding
+    embedding = enhancer.enhanced_search("${imagePath}", strategies)
+    
+    if embedding:
+        print("ENHANCED_EMBEDDING_READY")
+        print(json.dumps(embedding))
+    else:
+        print("ERROR: Failed to generate enhanced embedding", file=sys.stderr)
+        sys.exit(1)
+        
+except Exception as e:
+    print(f"ERROR: {e}", file=sys.stderr)
+    sys.exit(1)
+`;
+
+    const pythonProcess = spawn('python3', ['-c', pythonScript], {
+      cwd: path.join(__dirname, '..')
+    });
+    
+    let output = '';
+    let errorOutput = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Enhanced CLIP process failed: ${errorOutput}`));
+        return;
+      }
+
+      try {
+        const lines = output.trim().split('\n');
+        let embeddingLine = null;
+        
+        for (let i = lines.length - 1; i >= 0; i--) {
+          if (lines[i].startsWith('[') && lines[i].endsWith(']')) {
+            embeddingLine = lines[i];
+            break;
+          }
+        }
+        
+        if (embeddingLine) {
+          const embedding = JSON.parse(embeddingLine);
+          resolve(embedding);
+        } else {
+          reject(new Error('Failed to get valid enhanced embedding'));
+        }
+      } catch (error) {
+        reject(new Error(`Failed to parse enhanced embedding: ${error.message}`));
+      }
+    });
+  });
+}
+
+function analyzeCroppingEffectiveness(imagePath) {
+  return new Promise((resolve, reject) => {
+    const pythonScript = `
+import sys
+import os
+sys.path.append('${path.join(__dirname, '..', 'utils')}')
+
+from enhancedClipWithCropping import EnhancedCLIPWithCropping
+import json
+
+try:
+    enhancer = EnhancedCLIPWithCropping()
+    
+    # Analyze cropping effectiveness
+    analysis = enhancer.analyze_cropping_effectiveness("${imagePath}")
+    
+    if analysis:
+        print(json.dumps(analysis))
+    else:
+        print("ERROR: Failed to analyze cropping", file=sys.stderr)
+        sys.exit(1)
+        
+except Exception as e:
+    print(f"ERROR: {e}", file=sys.stderr)
+    sys.exit(1)
+`;
+
+    const pythonProcess = spawn('python3', ['-c', pythonScript], {
+      cwd: path.join(__dirname, '..')
+    });
+    
+    let output = '';
+    let errorOutput = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Cropping analysis failed: ${errorOutput}`));
+        return;
+      }
+
+      try {
+        const analysis = JSON.parse(output.trim());
+        resolve(analysis);
+      } catch (error) {
+        reject(new Error(`Failed to parse analysis results: ${error.message}`));
+      }
+    });
+  });
+}
+
+function getRecommendations(analysis) {
+  if (!analysis || analysis.length === 0) {
+    return [];
+  }
+  
+  const recommendations = [];
+  
+  // Get top performing strategy
+  const topStrategy = analysis[0];
+  if (topStrategy.effectiveness_score > 0.8) {
+    recommendations.push({
+      type: 'optimal_strategy',
+      message: `Best cropping strategy: ${topStrategy.strategy}`,
+      confidence: 'high'
+    });
+  }
+  
+  // Check for low effectiveness
+  const lowEffectiveness = analysis.filter(a => a.effectiveness_score < 0.5);
+  if (lowEffectiveness.length > 0) {
+    recommendations.push({
+      type: 'avoid_strategies',
+      message: `Consider avoiding: ${lowEffectiveness.map(a => a.strategy).join(', ')}`,
+      confidence: 'medium'
+    });
+  }
+  
+  // Multi-strategy recommendation
+  const goodStrategies = analysis.filter(a => a.effectiveness_score > 0.7);
+  if (goodStrategies.length > 1) {
+    recommendations.push({
+      type: 'multi_strategy',
+      message: `Use combination: ${goodStrategies.slice(0, 3).map(a => a.strategy).join(', ')}`,
+      confidence: 'high'
+    });
+  }
+  
+  return recommendations;
+}
+
+async function searchSimilarProducts(queryEmbedding, topK = 5) {
+  try {
+    // Get pre-computed embeddings from database  
+    const [embeddings] = await db.query(`
+      SELECT 
+        pe.product_id,
+        CAST(pe.embedding AS CHAR(100000)) as embedding_text,
+        p.product_name,
+        IFNULL(p.brand, '') as brand,
+        IFNULL(p.variety, '') as variety,
+        IFNULL(p.size, '') as size,
+        COALESCE(p.image_s3_url, p.image) as image_url
+      FROM product_embeddings pe
+      JOIN Products p ON pe.product_id = p.product_id
+      LIMIT 500
+    `);
+
+    console.log(`🔍 Computing similarities against ${embeddings.length} products...`);
+
+    const similarities = [];
+    let validCount = 0;
+    
+    for (const row of embeddings) {
+      try {
+        // Parse the embedding
+        let embeddingText = row.embedding_text.trim();
+        if (embeddingText.endsWith('...')) {
+          continue; // Skip truncated embeddings
+        }
+        
+        const productEmbedding = JSON.parse(embeddingText);
+        
+        // Ensure matching dimensions
+        if (productEmbedding.length !== queryEmbedding.length) {
+          continue;
+        }
+        
+        // Verify valid numbers
+        if (productEmbedding.some(v => isNaN(v) || !isFinite(v))) {
+          continue;
+        }
+        
+        // Calculate cosine similarity
+        let dotProduct = 0;
+        let queryNorm = 0;
+        let productNorm = 0;
+        
+        for (let i = 0; i < queryEmbedding.length; i++) {
+          dotProduct += queryEmbedding[i] * productEmbedding[i];
+          queryNorm += queryEmbedding[i] * queryEmbedding[i];
+          productNorm += productEmbedding[i] * productEmbedding[i];
+        }
+        
+        if (queryNorm === 0 || productNorm === 0) {
+          continue;
+        }
+        
+        const similarity = dotProduct / (Math.sqrt(queryNorm) * Math.sqrt(productNorm));
+        
+        // Only include valid similarities
+        if (similarity >= -1 && similarity <= 1) {
+          similarities.push({
+            product_id: row.product_id,
+            product_name: row.product_name,
+            brand: row.brand,
+            variety: row.variety,
+            size: row.size,
+            image_url: row.image_url,
+            similarity: similarity
+          });
+          validCount++;
+        }
+      } catch (e) {
+        // Skip malformed embeddings
+        continue;
+      }
+    }
+
+    // Sort by similarity and return top K
+    similarities.sort((a, b) => b.similarity - a.similarity);
+    const topResults = similarities.slice(0, topK);
+    
+    console.log(`✅ Enhanced search processed ${validCount} embeddings, returning top ${topResults.length}`);
+    return topResults;
+
+  } catch (error) {
+    throw new Error(`Enhanced search failed: ${error.message}`);
+  }
+}
+
+module.exports = router;
