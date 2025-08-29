@@ -50,7 +50,7 @@ const allowedOrigins = [
   'https://669ae7cdf45878756250f3cd--superb-taffy-d02534.netlify.app',
   'https://frontend.shoppeappnow.com'
 ];
-
+//should work 
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
