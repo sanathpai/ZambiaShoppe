@@ -4,3 +4,17 @@ node_modules
 backend/.env
 ShopAppKeyPair.pem
 
+# Logs and temporary files
+backend/logs/
+backend/temp/
+backend/utils/__pycache__/
+
+# Python cache files
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Temporary image files
+temp/clip_query_*.jpg
+temp/universal_enhanced_*.jpg
+
